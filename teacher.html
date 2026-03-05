@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>教師管理後台 – 打卡系統</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0f172a; --surface: #1e293b; --border: #334155;
+  --text: #e2e8f0; --muted: #94a3b8; --accent: #6366f1;
+  --green: #10b981; --red: #ef4444; --yellow: #f59e0b; --blue: #3b82f6;
+}
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+/* ===== LOGIN OVERLAY ===== */
+#login-overlay {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.login-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 40px; width: 360px; text-align: center;
+}
+.login-box h1 { font-size: 24px; margin-bottom: 6px; }
+.login-box p  { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+.login-box input {
+  width: 100%; padding: 12px 16px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 16px; margin-bottom: 12px; letter-spacing: 4px;
+  text-align: center;
+}
+.login-box input:focus { outline: none; border-color: var(--accent); }
+.login-box .error { color: var(--red); font-size: 13px; margin-bottom: 12px; min-height: 18px; }
+
+/* ===== LAYOUT ===== */
+#app { display: none; flex-direction: column; min-height: 100vh; }
+.topbar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 12px 24px; display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 50;
+}
+.topbar .logo  { font-size: 18px; font-weight: 700; }
+.topbar .right { display: flex; align-items: center; gap: 12px; }
+.topbar .badge { background: #14532d; color: #6ee7b7; border-radius: 20px; padding: 4px 14px; font-size: 13px; }
+.nav-tabs {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; overflow-x: auto; padding: 0 16px;
+}
+.nav-tab {
+  padding: 14px 20px; background: none; border: none; border-bottom: 3px solid transparent;
+  color: var(--muted); cursor: pointer; font-size: 14px; font-weight: 600;
+  white-space: nowrap; transition: all .2s;
+}
+.nav-tab:hover { color: var(--text); }
+.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.main { padding: 24px; flex: 1; max-width: 1200px; margin: 0 auto; width: 100%; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ===== COMMON ===== */
+.btn { padding: 9px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: opacity .2s; }
+.btn:hover { opacity: .85; }
+.btn-primary  { background: var(--accent); color: #fff; }
+.btn-green    { background: var(--green); color: #fff; }
+.btn-red      { background: var(--red); color: #fff; }
+.btn-ghost    { background: var(--border); color: var(--text); }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+.section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
+.controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+.controls label { color: var(--muted); font-size: 14px; }
+.controls input, .controls select {
+  padding: 8px 12px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 14px;
+}
+.stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.stat-box { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
+.stat-box .num { font-size: 28px; font-weight: 700; }
+.stat-box .lbl { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.stat-box.g .num { color: var(--green); }
+.stat-box.r .num { color: var(--red); }
+.stat-box.b .num { color: var(--blue); }
+.stat-box.y .num { color: var(--yellow); }
+
+/* ===== TABLE ===== */
+.tbl-wrap { overflow-x: auto; }
+table.data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.data-table th { background: #1e293b; color: var(--muted); padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+table.data-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+table.data-table tr:hover td { background: rgba(255,255,255,.02); }
+.badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.badge-green { background: #064e3b; color: #6ee7b7; }
+.badge-red   { background: #450a0a; color: #fca5a5; }
+.badge-blue  { background: #1e3a5f; color: #93c5fd; }
+.badge-gray  { background: var(--border); color: var(--muted); }
+
+/* ===== MODAL ===== */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.7);
+  display: none; align-items: center; justify-content: center; z-index: 200;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 28px; width: 440px; max-width: 95vw;
+}
+.modal h3 { font-size: 16px; margin-bottom: 20px; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.form-group input, .form-group select {
+  width: 100%; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 14px;
+}
+.form-group input:focus { outline: none; border-color: var(--accent); }
+.modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+
+/* ===== STUDENT MGMT ===== */
+#student-search {
+  padding: 9px 14px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 14px; width: 220px;
+}
+/* ===== SCHEDULE ===== */
+.schedule-months { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.schedule-months button { background: var(--border); color: var(--text); border: none; border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 16px; }
+.schedule-months h3 { font-size: 16px; font-weight: 700; min-width: 120px; text-align: center; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-header { text-align: center; font-size: 12px; color: var(--muted); padding: 6px 0; }
+.cal-day {
+  border-radius: 8px; padding: 10px 4px; text-align: center; cursor: pointer;
+  font-size: 14px; transition: all .15s; border: 1.5px solid transparent; user-select: none;
+}
+.cal-day.empty { visibility: hidden; }
+.cal-day.past  { color: var(--border); cursor: default; }
+.cal-day.school { background: #064e3b; color: #6ee7b7; border-color: #065f46; font-weight: 700; }
+.cal-day.normal { background: var(--bg); color: var(--text); }
+.cal-day.normal:hover { border-color: var(--accent); }
+.cal-day.weekend { color: var(--border); cursor: default; }
+.schedule-summary { display: flex; align-items: center; gap: 16px; margin-top: 14px; color: var(--muted); font-size: 14px; }
+.save-bar { display: flex; align-items: center; gap: 12px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+#save-status { font-size: 13px; color: var(--muted); }
+
+/* ===== TOAST ===== */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: #1e293b; border: 1px solid #334155; color: var(--text);
+  padding: 12px 24px; border-radius: 12px; font-size: 14px;
+  display: none; z-index: 999; white-space: nowrap;
+}
+
+/* ===== MISC ===== */
+.empty-msg { text-align: center; padding: 48px; color: var(--muted); }
+.loading-msg { text-align: center; padding: 36px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN ===== -->
+<div id="login-overlay">
+  <div class="login-box">
+    <h1>🔐 教師管理後台</h1>
+    <p id="login-desc">請輸入教師密碼</p>
+    <div id="login-error" class="error"></div>
+    <input type="password" id="pin-input" placeholder="••••••" maxlength="20">
+    <button class="btn btn-primary" style="width:100%" onclick="doLogin()">登入</button>
+    <p id="first-time-hint" style="font-size:12px;color:var(--muted);margin-top:12px;display:none">
+      尚未設定密碼，此次輸入將作為初始密碼。
+    </p>
+  </div>
+</div>
+
+<!-- ===== MAIN APP ===== -->
+<div id="app">
+  <div class="topbar">
+    <div class="logo">📊 教師管理後台</div>
+    <div class="right">
+      <span class="badge">✓ 教師已登入</span>
+      <a href="index.html" style="color:var(--muted);font-size:13px;text-decoration:none">📋 學生查詢</a>
+      <button class="btn btn-ghost btn-sm" onclick="logout()">登出</button>
+    </div>
+  </div>
+
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchTab('tab-today', this)">📅 今日出席</button>
+    <button class="nav-tab" onclick="switchTab('tab-monthly', this)">📊 月統計</button>
+    <button class="nav-tab" onclick="switchTab('tab-students', this); loadStudentMgmt()">👥 學生管理</button>
+    <button class="nav-tab" onclick="switchTab('tab-schedule', this); loadScheduleMgmt()">📆 上課日管理</button>
+    <button class="nav-tab" onclick="switchTab('tab-leave', this); loadTeacherLeaveT()">📋 請假管理</button>
+    <button class="nav-tab" onclick="switchTab('tab-homework', this); loadTeacherHomeworkT()">📚 作業管理</button>
+  </div>
+
+  <div class="main">
+
+    <!-- ===== 今日出席 ===== -->
+    <div id="tab-today" class="tab-content active">
+      <div class="controls">
+        <label>日期：</label>
+        <input type="date" id="t-date">
+        <button class="btn btn-primary" onclick="loadTodayT()">查詢</button>
+        <button class="btn btn-green" onclick="document.getElementById('t-date').valueAsDate=new Date();loadTodayT()">今天</button>
+      </div>
+      <div class="stats-row" id="today-stats">
+        <div class="stat-box b"><div class="num" id="ts-total">-</div><div class="lbl">總學生數</div></div>
+        <div class="stat-box g"><div class="num" id="ts-in">-</div><div class="lbl">已上課</div></div>
+        <div class="stat-box r"><div class="num" id="ts-absent">-</div><div class="lbl">未出席</div></div>
+        <div class="stat-box y"><div class="num" id="ts-out">-</div><div class="lbl">已下課</div></div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="data-table">
+          <thead><tr><th>姓名</th><th>班級</th><th>學號</th><th>上課打卡</th><th>下課打卡</th><th>狀態</th></tr></thead>
+          <tbody id="today-tbody"><tr><td colspan="6" class="loading-msg">載入中...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== 月統計 ===== -->
+    <div id="tab-monthly" class="tab-content">
+      <div class="controls">
+        <label>月份：</label>
+        <input type="month" id="m-month">
+        <button class="btn btn-primary" onclick="loadMonthlyT()">查詢</button>
+      </div>
+      <div id="monthly-container" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+        <div class="empty-msg" style="grid-column:1/-1">請選擇月份</div>
+      </div>
+    </div>
+
+    <!-- ===== 學生管理 ===== -->
+    <div id="tab-students" class="tab-content">
+      <div class="controls">
+        <input type="text" id="student-search" placeholder="🔍 搜尋姓名/卡號/學號" oninput="filterStudents()">
+        <button class="btn btn-primary" onclick="openStudentModal()">＋ 新增學生</button>
+        <button class="btn btn-green btn-sm" onclick="loadStudentMgmt()">🔄 重新整理</button>
+      </div>
+      <div class="tbl-wrap">
+        <table class="data-table">
+          <thead><tr><th>姓名</th><th>卡號（UID）</th><th>學號</th><th>班級</th><th>操作</th></tr></thead>
+          <tbody id="student-tbody"><tr><td colspan="5" class="loading-msg">載入中...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== 上課日管理 ===== -->
+    <div id="tab-schedule" class="tab-content">
+      <div class="card">
+        <div class="section-title">📆 上課日管理</div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:20px">點選日期切換上課 / 非上課日（綠色＝上課日）。儲存後立即生效。</p>
+        <div class="schedule-months">
+          <button onclick="scheduleMonth(-1)">&#8249;</button>
+          <h3 id="schedule-title" style="min-width:130px;text-align:center">2026年3月</h3>
+          <button onclick="scheduleMonth(1)">&#8250;</button>
+        </div>
+        <div class="cal-grid" id="schedule-cal"></div>
+        <div class="schedule-summary">
+          <span>✅ 已選上課日：<strong id="school-count">0</strong> 天</span>
+        </div>
+        <div class="save-bar">
+          <button class="btn btn-green" onclick="saveSchedule()">💾 儲存上課日</button>
+          <span id="save-status"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 請假管理 ===== -->
+    <div id="tab-leave" class="tab-content">
+      <div class="controls">
+        <label>學生：</label>
+        <select id="lv-stu" onchange="renderLeaveT()"><option value="">全部</option></select>
+        <label>月份：</label>
+        <input type="month" id="lv-month" oninput="renderLeaveT()">
+        <button class="btn btn-green btn-sm" onclick="loadTeacherLeaveT()">🔄</button>
+      </div>
+      <div id="lv-summary" style="color:var(--muted);font-size:13px;margin-bottom:12px"></div>
+      <div class="tbl-wrap">
+        <table class="data-table">
+          <thead><tr><th>學生</th><th>班級</th><th>請假日期</th><th>原因</th><th>申請時間</th></tr></thead>
+          <tbody id="lv-tbody"><tr><td colspan="5" class="loading-msg">尚未載入</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== 作業管理 ===== -->
+    <div id="tab-homework" class="tab-content">
+      <div class="controls">
+        <label>學生：</label>
+        <select id="hw-stu" onchange="renderHomeworkT()"><option value="">全部</option></select>
+        <input type="text" id="hw-kw" placeholder="作業名稱" oninput="renderHomeworkT()" style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;width:180px">
+        <button class="btn btn-green btn-sm" onclick="loadTeacherHomeworkT()">🔄</button>
+      </div>
+      <div id="hw-summary" style="color:var(--muted);font-size:13px;margin-bottom:12px"></div>
+      <div class="tbl-wrap">
+        <table class="data-table">
+          <thead><tr><th>學生</th><th>班級</th><th>作業名稱</th><th>繳交時間</th><th>連結</th></tr></thead>
+          <tbody id="hw-tbody"><tr><td colspan="5" class="loading-msg">尚未載入</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- .main -->
+</div><!-- #app -->
+
+<!-- ===== 學生新增/編輯 MODAL ===== -->
+<div class="modal-overlay" id="student-modal">
+  <div class="modal">
+    <h3 id="modal-title">新增學生</h3>
+    <div class="form-group">
+      <label>卡號 UID（刷卡取得）</label>
+      <input type="text" id="f-carduid" placeholder="例：A3F2B1">
+    </div>
+    <div class="form-group">
+      <label>姓名 *</label>
+      <input type="text" id="f-name" placeholder="學生姓名">
+    </div>
+    <div class="form-group">
+      <label>學號</label>
+      <input type="text" id="f-sid" placeholder="選填">
+    </div>
+    <div class="form-group">
+      <label>班級</label>
+      <input type="text" id="f-class" placeholder="選填">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeStudentModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveStudent()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 刪除確認 MODAL ===== -->
+<div class="modal-overlay" id="del-modal">
+  <div class="modal">
+    <h3>⚠️ 確認刪除</h3>
+    <p id="del-msg" style="color:var(--muted);font-size:14px;margin:16px 0;line-height:1.7"></p>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeDelModal()">取消</button>
+      <button class="btn btn-red" onclick="confirmDelete()">確認刪除</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="config.js"></script>
+<script src="teacher.js"></script>
+</body>
+</html>
