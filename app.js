@@ -706,3 +706,94 @@ function renderHomework() {
         </tr>`;
     }).join('');
 }
+
+// ===== 請假管理（教師版） =====
+
+let allLeaves = []; // [{ studentName, className, card_uid, date, reason, submitted_at }]
+
+async function loadTeacherLeave() {
+    const tbody = document.getElementById('lv-tbody');
+    tbody.innerHTML = '<tr><td colspan="5" class="loading">載入中...</td></tr>';
+
+    // 預設月份為當月
+    const monthInput = document.getElementById('lv-filter-month');
+    if (!monthInput.value) monthInput.value = new Date().toISOString().slice(0, 7);
+
+    try {
+        const studentsResp = await fetch(`${FIREBASE_CONFIG.databaseURL}/students.json`);
+        const studentsData = await studentsResp.json();
+
+        allLeaves = [];
+
+        if (studentsData) {
+            for (const [cardUid, studentData] of Object.entries(studentsData)) {
+                if (cardUid.startsWith('-') || !studentData || typeof studentData !== 'object') continue;
+                if (!studentData.leave_requests) continue;
+
+                const studentName = studentData.name || '未知';
+                const className = studentData.class_name || '未知班級';
+
+                for (const [lvKey, lv] of Object.entries(studentData.leave_requests)) {
+                    if (!lv || typeof lv !== 'object') continue;
+                    allLeaves.push({
+                        card_uid: cardUid,
+                        studentName,
+                        className,
+                        date: lv.date || '',
+                        reason: lv.reason || '（未填寫）',
+                        submitted_at: lv.submitted_at || ''
+                    });
+                }
+            }
+        }
+
+        // 排序：日期最新在前
+        allLeaves.sort((a, b) => b.date.localeCompare(a.date));
+
+        // 填入學生篩選下拉
+        const sel = document.getElementById('lv-filter-student');
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">全部學生</option>';
+        const names = [...new Set(allLeaves.map(l => l.studentName))].sort();
+        names.forEach(n => {
+            const opt = document.createElement('option');
+            opt.value = n;
+            opt.textContent = n;
+            sel.appendChild(opt);
+        });
+        sel.value = currentVal;
+
+        renderLeave();
+
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="5" style="color:#fca5a5; text-align:center;">載入失敗：${e.message}</td></tr>`;
+    }
+}
+
+function renderLeave() {
+    const filterStudent = document.getElementById('lv-filter-student').value;
+    const filterMonth = document.getElementById('lv-filter-month').value; // YYYY-MM
+
+    let list = allLeaves;
+    if (filterStudent) list = list.filter(l => l.studentName === filterStudent);
+    if (filterMonth) list = list.filter(l => l.date.startsWith(filterMonth));
+
+    document.getElementById('lv-summary').textContent = `共 ${list.length} 筆請假記錄`;
+
+    const tbody = document.getElementById('lv-tbody');
+    if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:30px;">沒有符合的請假記錄</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = list.map(l => {
+        const dt = l.submitted_at ? new Date(l.submitted_at).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '--';
+        return `<tr>
+            <td>${l.studentName}</td>
+            <td>${l.className}</td>
+            <td>${l.date}</td>
+            <td>${l.reason}</td>
+            <td>${dt}</td>
+        </tr>`;
+    }).join('');
+}
