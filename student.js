@@ -360,11 +360,18 @@ async function loadMonthly() {
     document.getElementById('monthly-calendar').innerHTML = '<div class="loading-center"><span class="spinner"></span>載入中...</div>';
 
     try {
-        const [allAttendance, leaveData, scheduleResp] = await Promise.all([
+        const [allAttendance, leaveData, scheduleData] = await Promise.all([
             firebaseGet('attendance'),
             firebaseGet(`students/${currentStudent.card_uid}/leave_requests`),
-            fetch(`./class_schedule.json?t=${Date.now()}`).then(r => r.ok ? r.json() : null).catch(() => null)
+            // 優先從 Firebase 讀上課日（教師可從後台修改）
+            firebaseGet('class_schedule').catch(()=>null)
         ]);
+
+        // fallback to static JSON if Firebase has no data
+        let schedJson = scheduleData;
+        if (!schedJson?.class_dates?.length) {
+            schedJson = await fetch(`./class_schedule.json?t=${Date.now()}`).then(r=>r.ok?r.json():null).catch(()=>null);
+        }
 
         // 篩出本人本月記錄（card_uid 不區分大小寫）
         const myRecords = allAttendance ? Object.values(allAttendance).filter(r =>
@@ -379,7 +386,7 @@ async function loadMonthly() {
         }
 
         const leaveKeys = leaveData ? Object.values(leaveData).map(l => l.date) : [];
-        const classDates = scheduleResp?.class_dates || [];
+        const classDates = schedJson?.class_dates || [];
         const today = new Date().toISOString().split('T')[0];
 
         // === 跟老師版相同：先按日期分組，上下課都到才算出席 ===
