@@ -358,10 +358,10 @@ async function loadMonthly() {
     document.getElementById('monthly-calendar').innerHTML = '<div class="loading-center"><span class="spinner"></span>載入中...</div>';
 
     try {
-        const [allAttendance, leaveData, scheduleData] = await Promise.all([
+        const [allAttendance, leaveData, scheduleResp] = await Promise.all([
             firebaseGet('attendance'),
             firebaseGet(`students/${currentStudent.card_uid}/leave_requests`),
-            firebaseGet('class_schedule')
+            fetch(`./class_schedule.json?t=${Date.now()}`).then(r => r.ok ? r.json() : null).catch(() => null)
         ]);
 
         const myRecords = allAttendance ? Object.values(allAttendance).filter(r =>
@@ -369,7 +369,9 @@ async function loadMonthly() {
         ) : [];
 
         const leaveKeys = leaveData ? Object.values(leaveData).map(l => l.date) : [];
-        const classDates = scheduleData?.class_dates || [];
+        const classDates = scheduleResp?.class_dates || [];
+
+        const today = new Date().toISOString().split('T')[0];
 
         // 統計
         let presentDays = 0, absentDays = 0, leaveDays = 0, totalDays = 0;
@@ -377,11 +379,13 @@ async function loadMonthly() {
 
         for (let d = 1; d <= daysInMonth; d++) {
             const dateStr = `${monthStr}-${String(d).padStart(2, '0')}`;
+            const dow = new Date(dateStr + 'T00:00:00').getDay();
             const isSchoolDay = classDates.length > 0
                 ? classDates.includes(dateStr)
-                : new Date(dateStr + 'T00:00:00').getDay() !== 0;
+                : (dow !== 0 && dow !== 6);
 
             if (!isSchoolDay) { dayStatus[dateStr] = 'not-school'; continue; }
+            if (dateStr > today) { dayStatus[dateStr] = 'future'; continue; }
 
             totalDays++;
             const dayRecords = myRecords.filter(r => r.date === dateStr);
