@@ -82,33 +82,36 @@ function updateStatus(text, isConnected) {
 // 加載上課日期配置
 async function loadClassSchedule() {
     try {
-        // 嘗試從本地 JSON 文件加載（帶 cache-busting 參數）
-        const cacheBreaker = Date.now();
-        const response = await fetch(`./class_schedule.json?t=${cacheBreaker}`);
+        // 優先從 Firebase 讀取（教師可在後台修改）
+        const fbResp = await fetch(`${FIREBASE_CONFIG.databaseURL}/class_schedule.json`);
+        if (fbResp.ok) {
+            const fbData = await fbResp.json();
+            if (fbData?.class_dates?.length > 0) {
+                CLASS_SCHEDULE = { dates: fbData.class_dates };
+                console.log(`[INFO] 從 Firebase 取得 ${CLASS_SCHEDULE.dates.length} 個上課日期`);
+                return;
+            }
+        }
+    } catch(e) { /* fallback */ }
+    try {
+        // Fallback: 靜態 JSON 檔
+        const response = await fetch(`./class_schedule.json?t=${Date.now()}`);
         if (response.ok) {
             const data = await response.json();
-            // 確保 CLASS_SCHEDULE 有 dates 陣列
-            if (data && data.class_dates) {
-                CLASS_SCHEDULE = {
-                    dates: data.class_dates
-                };
+            if (data?.class_dates) {
+                CLASS_SCHEDULE = { dates: data.class_dates };
             } else if (Array.isArray(data)) {
-                CLASS_SCHEDULE = {
-                    dates: data
-                };
+                CLASS_SCHEDULE = { dates: data };
             } else {
                 CLASS_SCHEDULE = { dates: [] };
             }
-            console.log(`[INFO] 已加載 ${CLASS_SCHEDULE.dates.length} 個上課日期`);
+            console.log(`[INFO] 從 JSON 檔取得 ${CLASS_SCHEDULE.dates.length} 個上課日期`);
         } else {
-            // 文件不存在或加載失敗，使用空配置
             CLASS_SCHEDULE = { dates: [] };
-            console.warn('[WARN] 無法加載 class_schedule.json (HTTP ' + response.status + ')，使用空配置');
         }
     } catch (error) {
-        // 網路錯誤或其他問題
         CLASS_SCHEDULE = { dates: [] };
-        console.warn('[WARN] 加載上課日期配置失敗:', error.message);
+        console.warn('[WARN] 上課日期載入失敗:', error.message);
     }
 }
 
