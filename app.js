@@ -616,3 +616,93 @@ function formatAttendanceDates(dayStats) {
     }
     return html;
 }
+
+// ===== 作業繳交（教師版） =====
+
+let allHomeworks = []; // [{ studentName, className, card_uid, title, link, submitted_at }]
+
+async function loadTeacherHomework() {
+    const tbody = document.getElementById('hw-tbody');
+    tbody.innerHTML = '<tr><td colspan="5" class="loading">載入中...</td></tr>';
+
+    try {
+        // 先確保學生資料已載入
+        if (allStudents.length === 0) await loadData();
+
+        const studentsResp = await fetch(`${FIREBASE_CONFIG.databaseURL}/students.json`);
+        const studentsData = await studentsResp.json();
+
+        allHomeworks = [];
+
+        if (studentsData) {
+            for (const [cardUid, studentData] of Object.entries(studentsData)) {
+                if (cardUid.startsWith('-') || !studentData || typeof studentData !== 'object') continue;
+                if (!studentData.homeworks) continue;
+
+                const studentName = studentData.name || '未知';
+                const className = studentData.class_name || '未知班級';
+
+                for (const [hwKey, hw] of Object.entries(studentData.homeworks)) {
+                    if (!hw || typeof hw !== 'object') continue;
+                    allHomeworks.push({
+                        card_uid: cardUid,
+                        studentName,
+                        className,
+                        title: hw.title || '（未填名稱）',
+                        link: hw.link || '',
+                        submitted_at: hw.submitted_at || ''
+                    });
+                }
+            }
+        }
+
+        // 排序：最新在前
+        allHomeworks.sort((a, b) => b.submitted_at.localeCompare(a.submitted_at));
+
+        // 填入學生篩選下拉
+        const sel = document.getElementById('hw-filter-student');
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">全部學生</option>';
+        const names = [...new Set(allHomeworks.map(h => h.studentName))].sort();
+        names.forEach(n => {
+            const opt = document.createElement('option');
+            opt.value = n;
+            opt.textContent = n;
+            sel.appendChild(opt);
+        });
+        sel.value = currentVal;
+
+        renderHomework();
+
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="5" style="color:#fca5a5; text-align:center;">載入失敗：${e.message}</td></tr>`;
+    }
+}
+
+function renderHomework() {
+    const filterStudent = document.getElementById('hw-filter-student').value;
+    const filterKeyword = document.getElementById('hw-filter-keyword').value.trim().toLowerCase();
+
+    let list = allHomeworks;
+    if (filterStudent) list = list.filter(h => h.studentName === filterStudent);
+    if (filterKeyword) list = list.filter(h => h.title.toLowerCase().includes(filterKeyword));
+
+    document.getElementById('hw-summary').textContent = `共 ${list.length} 筆繳交記錄`;
+
+    const tbody = document.getElementById('hw-tbody');
+    if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:30px;">沒有符合的作業記錄</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = list.map(h => {
+        const dt = h.submitted_at ? new Date(h.submitted_at).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '--';
+        return `<tr>
+            <td>${h.studentName}</td>
+            <td>${h.className}</td>
+            <td>${h.title}</td>
+            <td>${dt}</td>
+            <td>${h.link ? `<a href="${h.link}" target="_blank" style="color:#60a5fa;">🔗 開啟</a>` : '（無連結）'}</td>
+        </tr>`;
+    }).join('');
+}
