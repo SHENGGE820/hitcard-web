@@ -443,6 +443,7 @@
             <div class="tabs">
                 <button class="tab-button active" onclick="switchTab('daily')">📅 每日查詢</button>
                 <button class="tab-button" onclick="switchTab('monthly')">📊 當月統計</button>
+                <button class="tab-button" onclick="switchTab('homework'); loadTeacherHomework()">📚 作業繳交</button>
             </div>
             
             <!-- 每日查詢標籤頁 -->
@@ -510,6 +511,39 @@
                     <div style="grid-column: 1 / -1; text-align: center; color: #999; padding: 40px;">
                         請選擇月份進行查詢
                     </div>
+                </div>
+            </div>
+            <!-- 作業繳交標籤頁 -->
+            <div id="homework" class="tab-content">
+                <div class="controls" style="margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+                    <div class="control-group">
+                        <label>篩選學生：</label>
+                        <select id="hw-filter-student" onchange="renderHomework()">
+                            <option value="">全部學生</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>關鍵字：</label>
+                        <input type="text" id="hw-filter-keyword" placeholder="作業名稱" oninput="renderHomework()" style="width:160px">
+                    </div>
+                    <button onclick="loadTeacherHomework()" style="background:#10b981;">🔄 重新整理</button>
+                </div>
+                <div id="hw-summary" style="margin-bottom:16px; color:#94a3b8; font-size:14px;"></div>
+                <div id="hw-table-wrap">
+                    <table class="attendance-table">
+                        <thead>
+                            <tr>
+                                <th>學生</th>
+                                <th>班級</th>
+                                <th>作業名稱</th>
+                                <th>繳交時間</th>
+                                <th>連結</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hw-tbody">
+                            <tr><td colspan="5" class="loading">尚未載入</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
