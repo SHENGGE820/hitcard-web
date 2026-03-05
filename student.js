@@ -355,7 +355,7 @@ async function loadMonthly() {
     const [year, month] = monthStr.split('-').map(Number);
     const daysInMonth = new Date(year, month, 0).getDate();
     const startDate = `${monthStr}-01`;
-    const endDate = `${monthStr}-${String(daysInMonth).padStart(2, '0')}`;
+    const endDate   = `${monthStr}-${String(daysInMonth).padStart(2, '0')}`;
 
     document.getElementById('monthly-calendar').innerHTML = '<div class="loading-center"><span class="spinner"></span>載入中...</div>';
 
@@ -366,27 +366,36 @@ async function loadMonthly() {
             fetch(`./class_schedule.json?t=${Date.now()}`).then(r => r.ok ? r.json() : null).catch(() => null)
         ]);
 
+        // 篩出本人本月記錄（card_uid 不區分大小寫）
         const myRecords = allAttendance ? Object.values(allAttendance).filter(r =>
             r.card_uid?.toUpperCase() === currentStudent.card_uid?.toUpperCase() &&
             r.date >= startDate && r.date <= endDate
         ) : [];
 
-        // debug
-        console.log('[月統計] card_uid:', currentStudent.card_uid);
-        console.log('[月統計] 全部出勤筆數:', allAttendance ? Object.values(allAttendance).length : 0);
-        console.log('[月統計] 本人本月筆數:', myRecords.length);
-        if (myRecords.length > 0) console.log('[月統計] 樣本:', myRecords[0]);
-        else if (allAttendance) {
-            const sample = Object.values(allAttendance)[0];
-            console.log('[月統計] 出勤記錄樣本 card_uid:', sample?.card_uid);
+        console.log('[月統計] card_uid:', currentStudent.card_uid, '| 本月筆數:', myRecords.length);
+        if (myRecords.length === 0 && allAttendance) {
+            const s = Object.values(allAttendance)[0];
+            console.log('[月統計] 出勤記錄範例 card_uid:', s?.card_uid);
         }
 
         const leaveKeys = leaveData ? Object.values(leaveData).map(l => l.date) : [];
         const classDates = scheduleResp?.class_dates || [];
-
         const today = new Date().toISOString().split('T')[0];
 
-        // 統計
+        // === 跟老師版相同：先按日期分組，上下課都到才算出席 ===
+        const dateRecords = {};
+        for (const r of myRecords) {
+            const d = r.date || r.check_time?.split(' ')[0];
+            if (!d) continue;
+            if (!dateRecords[d]) dateRecords[d] = { check_in: false, check_out: false };
+            if (r.check_type === 'check_in')  dateRecords[d].check_in  = true;
+            if (r.check_type === 'check_out') dateRecords[d].check_out = true;
+        }
+        const attendedDates = new Set(
+            Object.entries(dateRecords).filter(([, v]) => v.check_in && v.check_out).map(([k]) => k)
+        );
+
+        // 逐日計算 dayStatus
         let presentDays = 0, absentDays = 0, leaveDays = 0, totalDays = 0;
         const dayStatus = {};
 
@@ -397,50 +406,63 @@ async function loadMonthly() {
                 ? classDates.includes(dateStr)
                 : (dow !== 0 && dow !== 6);
 
-            if (!isSchoolDay) { dayStatus[dateStr] = 'not-school'; continue; }
-            if (dateStr > today) { dayStatus[dateStr] = 'future'; continue; }
+            if (!isSchoolDay)    { dayStatus[dateStr] = 'not-school'; continue; }
+            if (dateStr > today) { dayStatus[dateStr] = 'future';     continue; }
 
             totalDays++;
-            const dayRecords = myRecords.filter(r => r.date === dateStr);
-            const hasIn  = dayRecords.some(r => r.check_type === 'check_in');
-            const hasOut = dayRecords.some(r => r.check_type === 'check_out');
             const isLeave = leaveKeys.includes(dateStr);
-
-            if (isLeave)              { leaveDays++;   dayStatus[dateStr] = 'leave'; }
-            else if (hasIn || hasOut) { presentDays++; dayStatus[dateStr] = 'present'; }
-            else                      { absentDays++;  dayStatus[dateStr] = 'absent'; }
+            if (isLeave)                        { leaveDays++;   dayStatus[dateStr] = 'leave'; }
+            else if (attendedDates.has(dateStr)) { presentDays++; dayStatus[dateStr] = 'present'; }
+            else                                 { absentDays++;  dayStatus[dateStr] = 'absent'; }
         }
 
-        document.getElementById('stat-present').textContent = presentDays;
-        document.getElementById('stat-absent').textContent = absentDays;
-        document.getElementById('stat-total').textContent = totalDays;
+        const rate = totalDays > 0 ? ((presentDays / totalDays) * 100).toFixed(1) : '0';
 
-        // 日曆
+        document.getElementById('stat-present').textContent = presentDays;
+        document.getElementById('stat-absent').textContent  = absentDays;
+        document.getElementById('stat-total').textContent   = totalDays;
+        document.getElementById('stat-rate').textContent    = rate + '%';
+
         renderCalendar(year, month, daysInMonth, dayStatus);
 
     } catch (e) { console.error('載入月統計失敗', e); }
 }
 
 function renderCalendar(year, month, daysInMonth, dayStatus) {
+    // === 日曆格 ===
     const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
-    let html = weekDays.map(d => `<div class="cal-header">${d}</div>`).join('');
-
+    let calHtml = weekDays.map(d => `<div class="cal-header">${d}</div>`).join('');
     const firstDay = new Date(year, month - 1, 1).getDay();
-    for (let i = 0; i < firstDay; i++) html += '<div class="cal-day empty"></div>';
-
+    for (let i = 0; i < firstDay; i++) calHtml += '<div class="cal-day empty"></div>';
     for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-        const status = dayStatus[dateStr] || 'weekend';
-        html += `<div class="cal-day ${status}">${d}</div>`;
+        calHtml += `<div class="cal-day ${dayStatus[dateStr] || 'not-school'}">${d}</div>`;
+    }
+
+    // === 每日色塊（跟老師版一樣）===
+    let badgeHtml = '';
+    for (const [dateStr, status] of Object.entries(dayStatus).sort()) {
+        if (status === 'not-school' || status === 'future') continue;
+        const day = parseInt(dateStr.split('-')[2]);
+        if (status === 'present') badgeHtml += `<span class="date-badge present" title="${dateStr}">${day}✓</span>`;
+        else if (status === 'absent') badgeHtml += `<span class="date-badge absent" title="${dateStr}">${day}✗</span>`;
+        else if (status === 'leave')  badgeHtml += `<span class="date-badge leave"  title="${dateStr}">${day}假</span>`;
     }
 
     const container = document.getElementById('monthly-calendar');
-    container.innerHTML = `<div class="calendar-grid">${html}</div>
-    <div style="display:flex; gap:12px; margin-top:14px; flex-wrap:wrap; font-size:12px; color:#64748b;">
-        <span><span style="color:#6ee7b7">■</span> 出席</span>
-        <span><span style="color:#fca5a5">■</span> 缺席</span>
-        <span><span style="color:#93c5fd">■</span> 請假</span>
-    </div>`;
+    container.innerHTML = `
+        <div class="calendar-grid">${calHtml}</div>
+        <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; font-size:12px; color:#64748b;">
+            <span><span style="color:#6ee7b7">■</span> 出席</span>
+            <span><span style="color:#fca5a5">■</span> 缺席</span>
+            <span><span style="color:#93c5fd">■</span> 請假</span>
+        </div>
+        ${badgeHtml ? `
+        <div style="margin-top:16px;">
+            <div style="font-size:13px; color:#94a3b8; margin-bottom:8px;">各日期考勤</div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">${badgeHtml}</div>
+        </div>` : ''}
+    `;
 }
 
 // ===== 請假 =====
