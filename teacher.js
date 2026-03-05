@@ -73,6 +73,37 @@ function logout() {
     sessionStorage.removeItem('teacher_auth');
     location.reload();
 }
+function openChangePinModal() {
+    document.getElementById('cp-old').value = '';
+    document.getElementById('cp-new').value = '';
+    document.getElementById('cp-confirm').value = '';
+    document.getElementById('cp-err').textContent = '';
+    document.getElementById('change-pin-overlay').style.display = 'flex';
+    setTimeout(()=>document.getElementById('cp-old').focus(), 100);
+}
+function closeChangePinModal() {
+    document.getElementById('change-pin-overlay').style.display = 'none';
+}
+async function changePin() {
+    const errEl = document.getElementById('cp-err');
+    const oldVal = document.getElementById('cp-old').value;
+    const newVal = document.getElementById('cp-new').value;
+    const confirmVal = document.getElementById('cp-confirm').value;
+    errEl.textContent = '';
+    if (!oldVal) { errEl.textContent = '請輸入現有密碼'; return; }
+    if (!newVal || newVal.length < 4) { errEl.textContent = '新密碼至少 4 個字元'; return; }
+    if (newVal !== confirmVal) { errEl.textContent = '兩次新密碼不一致'; return; }
+    try {
+        const oldHash = await sha256(oldVal);
+        const stored = await fbGet('teacher_config/pin_hash').catch(()=>null);
+        if (oldHash !== stored) { errEl.textContent = '現有密碼錯誤'; return; }
+        const newHash = await sha256(newVal);
+        await fbPut('teacher_config/pin_hash', newHash);
+        sessionStorage.setItem('teacher_auth', newHash);
+        closeChangePinModal();
+        showToast('密碼已更新');
+    } catch(e) { errEl.textContent = '更新失敗：' + e.message; }
+}
 
 // ===== Tabs =====
 function switchTab(id, btn) {
