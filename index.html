@@ -444,6 +444,7 @@
                 <button class="tab-button active" onclick="switchTab('daily')">📅 每日查詢</button>
                 <button class="tab-button" onclick="switchTab('monthly')">📊 當月統計</button>
                 <button class="tab-button" onclick="switchTab('homework'); loadTeacherHomework()">📚 作業繳交</button>
+                <button class="tab-button" onclick="switchTab('leave-mgmt'); loadTeacherLeave()">📋 請假管理</button>
             </div>
             
             <!-- 每日查詢標籤頁 -->
@@ -541,6 +542,40 @@
                             </tr>
                         </thead>
                         <tbody id="hw-tbody">
+                            <tr><td colspan="5" class="loading">尚未載入</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 請假管理標籤頁 -->
+            <div id="leave-mgmt" class="tab-content">
+                <div class="controls" style="margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+                    <div class="control-group">
+                        <label>篩選學生：</label>
+                        <select id="lv-filter-student" onchange="renderLeave()">
+                            <option value="">全部學生</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>月份：</label>
+                        <input type="month" id="lv-filter-month" oninput="renderLeave()" style="width:150px">
+                    </div>
+                    <button onclick="loadTeacherLeave()" style="background:#10b981;">🔄 重新整理</button>
+                </div>
+                <div id="lv-summary" style="margin-bottom:16px; color:#94a3b8; font-size:14px;"></div>
+                <div>
+                    <table class="attendance-table">
+                        <thead>
+                            <tr>
+                                <th>學生</th>
+                                <th>班級</th>
+                                <th>請假日期</th>
+                                <th>原因</th>
+                                <th>申請時間</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lv-tbody">
                             <tr><td colspan="5" class="loading">尚未載入</td></tr>
                         </tbody>
                     </table>
