@@ -324,6 +324,18 @@
         .cal-day.weekend { color: #334155; }
         .cal-day.not-school { color: #1e293b; }
         .cal-day.future { color: #334155; font-style: italic; }
+        .date-badge {
+            display: inline-block;
+            padding: 4px 9px;
+            background: #1e293b;
+            border-radius: 5px;
+            font-size: 13px;
+            color: #64748b;
+            border: 1px solid #334155;
+        }
+        .date-badge.present { background: #064e3b; color: #6ee7b7; border-color: #065f46; }
+        .date-badge.absent  { background: #450a0a; color: #fca5a5; border-color: #7f1d1d; }
+        .date-badge.leave   { background: #1e3a5f; color: #93c5fd; border-color: #1d4ed8; }
         .cal-day.empty { background: transparent; }
 
         /* ===== 請假 ===== */
@@ -593,6 +605,10 @@
             <div class="stat-box total">
                 <div class="num" id="stat-total">--</div>
                 <div class="lbl">應上課天數</div>
+            </div>
+            <div class="stat-box" style="background:#1e293b; border:1px solid #334155;">
+                <div class="num" id="stat-rate" style="color:#f59e0b">--%</div>
+                <div class="lbl">出席率</div>
             </div>
         </div>
         <div class="section-title">出席日曆</div>
