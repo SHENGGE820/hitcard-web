@@ -261,7 +261,7 @@ async function loadTodayAttendance() {
         if (!all) return;
 
         const todayRecords = Object.values(all).filter(r =>
-            r.card_uid === currentStudent.card_uid && r.date === today
+            r.card_uid?.toUpperCase() === currentStudent.card_uid?.toUpperCase() && r.date === today
         );
 
         const checkIn = todayRecords.find(r => r.check_type === 'check_in');
@@ -301,7 +301,9 @@ async function loadWeekAttendance() {
 
     try {
         const all = await firebaseGet('attendance');
-        const myRecords = all ? Object.values(all).filter(r => r.card_uid === currentStudent.card_uid) : [];
+        const myRecords = all ? Object.values(all).filter(r =>
+            r.card_uid?.toUpperCase() === currentStudent.card_uid?.toUpperCase()
+        ) : [];
         const leaveData = await firebaseGet(`students/${currentStudent.card_uid}/leave_requests`);
         const leaveKeys = leaveData ? Object.values(leaveData).map(l => l.date) : [];
 
@@ -365,8 +367,19 @@ async function loadMonthly() {
         ]);
 
         const myRecords = allAttendance ? Object.values(allAttendance).filter(r =>
-            r.card_uid === currentStudent.card_uid && r.date >= startDate && r.date <= endDate
+            r.card_uid?.toUpperCase() === currentStudent.card_uid?.toUpperCase() &&
+            r.date >= startDate && r.date <= endDate
         ) : [];
+
+        // debug
+        console.log('[月統計] card_uid:', currentStudent.card_uid);
+        console.log('[月統計] 全部出勤筆數:', allAttendance ? Object.values(allAttendance).length : 0);
+        console.log('[月統計] 本人本月筆數:', myRecords.length);
+        if (myRecords.length > 0) console.log('[月統計] 樣本:', myRecords[0]);
+        else if (allAttendance) {
+            const sample = Object.values(allAttendance)[0];
+            console.log('[月統計] 出勤記錄樣本 card_uid:', sample?.card_uid);
+        }
 
         const leaveKeys = leaveData ? Object.values(leaveData).map(l => l.date) : [];
         const classDates = scheduleResp?.class_dates || [];
@@ -389,13 +402,13 @@ async function loadMonthly() {
 
             totalDays++;
             const dayRecords = myRecords.filter(r => r.date === dateStr);
-            const hasIn = dayRecords.some(r => r.check_type === 'check_in');
+            const hasIn  = dayRecords.some(r => r.check_type === 'check_in');
             const hasOut = dayRecords.some(r => r.check_type === 'check_out');
             const isLeave = leaveKeys.includes(dateStr);
 
-            if (isLeave) { leaveDays++; dayStatus[dateStr] = 'leave'; }
-            else if (hasIn && hasOut) { presentDays++; dayStatus[dateStr] = 'present'; }
-            else { absentDays++; dayStatus[dateStr] = 'absent'; }
+            if (isLeave)              { leaveDays++;   dayStatus[dateStr] = 'leave'; }
+            else if (hasIn || hasOut) { presentDays++; dayStatus[dateStr] = 'present'; }
+            else                      { absentDays++;  dayStatus[dateStr] = 'absent'; }
         }
 
         document.getElementById('stat-present').textContent = presentDays;
