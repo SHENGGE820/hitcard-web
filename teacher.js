@@ -284,6 +284,7 @@ function filterStudents() {
             <td>${s.class_name||'--'}</td>
             <td>
                 <button class="btn btn-ghost btn-sm" onclick='openStudentModal(${JSON.stringify(s)})'>✏️ 編輯</button>
+                <button class="btn btn-yellow btn-sm" style="margin-left:6px" onclick='notifyLate("${s.card_uid}","${s.name}")'>⏰ 遲到提醒</button>
                 <button class="btn btn-red btn-sm" style="margin-left:6px" onclick='askDelete("${s.card_uid}","${s.name}")'>🗑️ 刪除</button>
             </td>
         </tr>
@@ -302,6 +303,23 @@ function openStudentModal(student=null) {
     document.getElementById('f-name').focus();
 }
 function closeStudentModal() { document.getElementById('student-modal').classList.remove('open'); }
+async function notifyLate(cardUid, studentName) {
+    try {
+        const response = await fetch('/hitcard-web/api/remind_late', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ card_uid: cardUid.toUpperCase(), name: studentName })
+        });
+        const result = await response.json();
+        if (result.success) {
+            showToast(`✅ 已通知 ${studentName} 遲到`);
+        } else {
+            showToast(`❌ 通知失敗: ${result.error || '未知錯誤'}`);
+        }
+    } catch(e) {
+        showToast(`❌ 通知出錯: ${e.message}`);
+    }
+}
 async function saveStudent() {
     const uid   = document.getElementById('f-carduid').value.trim().toUpperCase();
     const name  = document.getElementById('f-name').value.trim();
