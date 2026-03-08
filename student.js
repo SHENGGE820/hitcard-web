@@ -309,15 +309,31 @@ async function loadTodayAttendance() {
 
 async function loadWeekAttendance() {
     const today = new Date();
-    const days = [];
-    // 顯示最近 7 天
-    for (let i = 6; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(today.getDate() - i);
-        days.push(d.toISOString().split('T')[0]);
+    // 取得本週的所有日期（週一到週日）
+    const weekDates = [];
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay() + 1); // 週一
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(startOfWeek);
+        d.setDate(startOfWeek.getDate() + i);
+        weekDates.push(d.toISOString().split('T')[0]);
     }
 
     try {
+        // 取得老師設定的上課日
+        let scheduleData = await firebaseGet('class_schedule').catch(() => null);
+        if (!scheduleData?.class_dates?.length) {
+            // fallback: 預設週一到週五
+            scheduleData = {
+                class_dates: weekDates.filter(date => {
+                    const dow = new Date(date + 'T00:00:00').getDay();
+                    return dow >= 1 && dow <= 5;
+                })
+            };
+        }
+        // 只顯示這週中老師設定的上課日
+        const classDates = scheduleData.class_dates.filter(date => weekDates.includes(date));
+
         const all = await firebaseGet('attendance');
         const myRecords = all ? Object.values(all).filter(r =>
             r.card_uid?.toUpperCase() === currentStudent.card_uid?.toUpperCase()
@@ -328,7 +344,7 @@ async function loadWeekAttendance() {
         const container = document.getElementById('week-list');
         container.innerHTML = '';
 
-        for (const dateStr of days) {
+        for (const dateStr of classDates) {
             const dayRecords = myRecords.filter(r => r.date === dateStr);
             const checkIn = dayRecords.find(r => r.check_type === 'check_in');
             const checkOut = dayRecords.find(r => r.check_type === 'check_out');
