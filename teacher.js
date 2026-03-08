@@ -409,7 +409,9 @@ function renderScheduleCal() {
         html+=`<div class="cal-day ${cls}" ${onclick}>${d}</div>`;
     }
     document.getElementById('schedule-cal').innerHTML = html;
-    document.getElementById('school-count').textContent = editingDates.size;
+    const monthPrefix = `${schedYear}-${String(schedMonth).padStart(2,'0')}-`;
+    const monthCount = [...editingDates].filter(d => d.startsWith(monthPrefix)).length;
+    document.getElementById('school-count').textContent = monthCount;
 }
 function toggleDate(ds) {
     if (editingDates.has(ds)) editingDates.delete(ds);
