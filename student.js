@@ -631,6 +631,58 @@ async function loadHomeworkList() {
     } catch (e) { console.error('載入作業記錄失敗', e); }
 }
 
+// ===== 更改密碼 =====
+
+async function submitChangePw() {
+    const oldPw = document.getElementById('old-pw').value;
+    const newPw = document.getElementById('new-pw').value;
+    const newPwConfirm = document.getElementById('new-pw-confirm').value;
+    const errEl = document.getElementById('changepw-error');
+
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+
+    // 驗證
+    if (!oldPw) { errEl.textContent = '請輸入現有密碼'; errEl.style.display = 'block'; return; }
+    if (!newPw || newPw.length < 4) { errEl.textContent = '新密碼至少 4 個字元'; errEl.style.display = 'block'; return; }
+    if (newPw !== newPwConfirm) { errEl.textContent = '兩次新密碼不一致'; errEl.style.display = 'block'; return; }
+    if (oldPw === newPw) { errEl.textContent = '新密碼不能與現有密碼相同'; errEl.style.display = 'block'; return; }
+
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = '驗證中...';
+
+    try {
+        // 驗證舊密碼
+        const oldHash = await sha256(oldPw);
+        const storedHash = await firebaseGet(`students/${currentStudent.card_uid}/password`);
+        
+        if (oldHash !== storedHash) {
+            errEl.textContent = '現有密碼錯誤';
+            errEl.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = '確認更改';
+            return;
+        }
+
+        // 更新新密碼
+        const newHash = await sha256(newPw);
+        await firebasePut(`students/${currentStudent.card_uid}/password`, newHash);
+
+        showToast('✅ 密碼已成功更改');
+        document.getElementById('old-pw').value = '';
+        document.getElementById('new-pw').value = '';
+        document.getElementById('new-pw-confirm').value = '';
+
+    } catch (e) {
+        errEl.textContent = '更改失敗，請稍後再試：' + e.message;
+        errEl.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '確認更改';
+    }
+}
+
 // ===== 初始化 =====
 (function init() {
     // 檢查是否已登入（session）
