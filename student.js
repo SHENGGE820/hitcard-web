@@ -286,7 +286,7 @@ async function loadTodayAttendance() {
 
         if (checkIn) {
             document.getElementById('checkin-icon').textContent = '✅';
-            document.getElementById('checkin-time').textContent = checkIn.check_time.split(' ')[1]?.slice(0, 5) || checkIn.check_time;
+            document.getElementById('checkin-time').textContent = checkIn.check_time.includes(' ') ? checkIn.check_time.split(' ')[1].slice(0, 5) : checkIn.check_time.slice(0, 5);
             document.getElementById('checkin-time').className = 'time';
         } else {
             document.getElementById('checkin-icon').textContent = '⏰';
@@ -296,7 +296,7 @@ async function loadTodayAttendance() {
 
         if (checkOut) {
             document.getElementById('checkout-icon').textContent = '✅';
-            document.getElementById('checkout-time').textContent = checkOut.check_time.split(' ')[1]?.slice(0, 5) || checkOut.check_time;
+            document.getElementById('checkout-time').textContent = checkOut.check_time.includes(' ') ? checkOut.check_time.split(' ')[1].slice(0, 5) : checkOut.check_time.slice(0, 5);
             document.getElementById('checkout-time').className = 'time';
         } else {
             document.getElementById('checkout-icon').textContent = '🏁';
@@ -370,8 +370,8 @@ async function loadWeekAttendance() {
                     <div>
                         <div class="date">${label}</div>
                         <div class="reason" style="color:#64748b">
-                            ${checkIn ? '上課 ' + (checkIn.check_time.split(' ')[1]?.slice(0,5) || '') : ''}
-                            ${checkOut ? '・下課 ' + (checkOut.check_time.split(' ')[1]?.slice(0,5) || '') : ''}
+                            ${checkIn ? '上課 ' + (checkIn.check_time.includes(' ') ? checkIn.check_time.split(' ')[1].slice(0,5) : checkIn.check_time.slice(0,5)) : ''}
+                            ${checkOut ? '・下課 ' + (checkOut.check_time.includes(' ') ? checkOut.check_time.split(' ')[1].slice(0,5) : checkOut.check_time.slice(0,5)) : ''}
                         </div>
                     </div>
                     <span class="badge" style="background:#1e293b; color:${statusColor}">${statusIcon} ${statusText}</span>
