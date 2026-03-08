@@ -228,6 +228,9 @@ function enterMainPage() {
     // 設定請假日期預設值
     document.getElementById('leave-date').value = today.toISOString().split('T')[0];
 
+    // 設定作業日期預設值
+    document.getElementById('hw-date').value = today.toISOString().split('T')[0];
+
     loadTodayAttendance();
     loadWeekAttendance();
     loadLeaveList();
@@ -521,28 +524,62 @@ async function loadLeaveList() {
 }
 
 // ===== 作業 =====
+// 支援的檔案類型
+const ALLOWED_FILES = /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|jpg|jpeg|png|gif|zip)$/i;
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 async function submitHomework() {
-    const title = document.getElementById('hw-title').value.trim();
-    const link = document.getElementById('hw-link').value.trim();
+    const fileInput = document.getElementById('hw-file');
+    const dateInput = document.getElementById('hw-date');
+    const file = fileInput.files[0];
+    const hwDate = dateInput.value;
 
-    if (!title) { showToast('請填寫作業名稱'); return; }
-    if (!link) { showToast('請填寫作業連結'); return; }
-    if (!link.startsWith('http')) { showToast('請輸入有效的網址（以 http 開頭）'); return; }
+    if (!hwDate) { showToast('請選擇作業日期'); return; }
+    if (!file) { showToast('請選擇檔案'); return; }
+    
+    // 驗証檔案格式
+    if (!ALLOWED_FILES.test(file.name)) {
+        showToast('❌ 不支持的檔案格式。允許：PDF、Word、Excel、圖片等');
+        return;
+    }
+    
+    // 驗証檔案大小
+    if (file.size > MAX_FILE_SIZE) {
+        showToast(`❌ 檔案過大（${(file.size / 1024 / 1024).toFixed(1)}MB > 50MB）`);
+        return;
+    }
 
-    const key = `hw_${Date.now()}`;
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = '上傳中...';
+
     try {
-        await firebasePut(`students/${currentStudent.card_uid}/homeworks/${key}`, {
-            title,
-            link,
-            submitted_at: new Date().toISOString()
+        // 上傳至 LINE Bot API
+        const formData = new FormData();
+        formData.append('card_uid', currentStudent.card_uid);
+        formData.append('hw_date', hwDate);
+        formData.append('file', file);
+
+        const response = await fetch('https://reached-struck-exhibition-controversial.trycloudflare.com/api/homework/upload', {
+            method: 'POST',
+            body: formData
         });
-        showToast('✅ 作業已繳交');
-        document.getElementById('hw-title').value = '';
-        document.getElementById('hw-link').value = '';
-        loadHomeworkList();
+
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast('✅ 作業已上傳');
+            fileInput.value = '';
+            dateInput.value = new Date().toISOString().split('T')[0];
+            loadHomeworkList();
+        } else {
+            showToast(`❌ 上傳失敗: ${result.error}`);
+        }
     } catch (e) {
-        showToast('❌ 繳交失敗，請稍後再試');
+        showToast(`❌ 上傳出錯: ${e.message}`);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '上傳作業';
     }
 }
 
@@ -556,12 +593,16 @@ async function loadHomeworkList() {
             return;
         }
 
-        const hws = Object.values(data).sort((a, b) => b.submitted_at.localeCompare(a.submitted_at));
+        const hws = Object.values(data).sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
         container.innerHTML = hws.map(h => `
             <div class="hw-item">
-                <div class="title">📄 ${h.title}</div>
-                <div class="meta">繳交時間：${new Date(h.submitted_at).toLocaleString('zh-TW')}</div>
-                <a href="${h.link}" target="_blank">🔗 查看檔案</a>
+                <div class="title">📄 ${h.filename || '作業'}</div>
+                <div class="meta">
+                    作業日期：${h.date || '未指定'} | 
+                    繳交時間：${new Date(h.submitted_at).toLocaleString('zh-TW')} |
+                    檔案大小：${(h.filesize / 1024 / 1024).toFixed(2)}MB
+                </div>
+                ${h.downloadUrl ? `<a href="${h.downloadUrl}" target="_blank" download>⬇️ 下載</a>` : ''}
             </div>
         `).join('');
     } catch (e) { console.error('載入作業記錄失敗', e); }

@@ -471,44 +471,101 @@ function renderLeaveT() {
 // ===== 作業管理 =====
 let allHomeworks = [];
 async function loadTeacherHomeworkT() {
-    document.getElementById('hw-tbody').innerHTML = '<tr><td colspan="5" class="loading-msg">載入中...</td></tr>';
+    const dateInput = document.getElementById('hw-date-filter').value;
+    
+    if (!dateInput) {
+        document.getElementById('hw-tbody').innerHTML = '<tr><td colspan="7" class="empty-msg">請選擇日期</td></tr>';
+        return;
+    }
+
+    document.getElementById('hw-tbody').innerHTML = '<tr><td colspan="7" class="loading-msg">載入中...</td></tr>';
     try {
-        const data = await fbGet('students');
-        allHomeworks = [];
-        if (data) {
-            for (const [uid,stu] of Object.entries(data)) {
-                if (uid.startsWith('-')||!stu||!stu.homeworks) continue;
-                for (const hw of Object.values(stu.homeworks)) {
-                    if (!hw||typeof hw!=='object') continue;
-                    allHomeworks.push({ name:stu.name||'?', class_name:stu.class_name||'', title:hw.title||'', link:hw.link||'', submitted_at:hw.submitted_at||'' });
+        const [studentsData, allHomeworks] = await Promise.all([
+            fbGet('students'),
+            fbGet('students')
+        ]);
+
+        // 構建學生列表
+        const students = [];
+        const homeworkMap = {}; // { cardUid -> [hw文件列表] }
+        
+        if (studentsData) {
+            for (const [uid, stu] of Object.entries(studentsData)) {
+                if (uid.startsWith('-') || !stu?.name) continue;
+                students.push({
+                    card_uid: uid,
+                    name: stu.name || '?',
+                    class_name: stu.class_name || '?',
+                    student_id: stu.student_id || '?'
+                });
+
+                // 整理該學生的作業
+                if (stu.homeworks && typeof stu.homeworks === 'object') {
+                    homeworkMap[uid] = [];
+                    for (const [hwKey, hw] of Object.entries(stu.homeworks)) {
+                        if (!hw || typeof hw !== 'object') continue;
+                        if (hw.date === dateInput) {
+                            homeworkMap[uid].push(hw);
+                        }
+                    }
                 }
             }
         }
-        allHomeworks.sort((a,b)=>b.submitted_at.localeCompare(a.submitted_at));
-        const sel = document.getElementById('hw-stu');
-        const cur = sel.value;
-        sel.innerHTML = '<option value="">全部</option>';
-        [...new Set(allHomeworks.map(h=>h.name))].sort().forEach(n=>{
-            sel.innerHTML += `<option value="${n}">${n}</option>`;
-        });
-        sel.value = cur;
-        renderHomeworkT();
+
+        students.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+        // 統計
+        const submitted = students.filter(s => homeworkMap[s.card_uid]?.length > 0).length;
+        const notSubmitted = students.length - submitted;
+        
+        document.getElementById('hw-summary').textContent = 
+            `日期: ${dateInput} | 共 ${students.length} 人 | 已繳 ${submitted} | 未繳 ${notSubmitted}`;
+
+        // 列表
+        let html = '';
+        for (const stu of students) {
+            const hws = homeworkMap[stu.card_uid] || [];
+            const status = hws.length > 0 ? '✅ 已交' : '❌ 未交';
+            const statusBadge = hws.length > 0 
+                ? '<span class="badge badge-green">✅ 已交</span>'
+                : '<span class="badge badge-red">❌ 未交</span>';
+            
+            if (hws.length > 0) {
+                // 有繳交作業，按行顯示
+                for (const hw of hws) {
+                    const filename = hw.filename || '(無名檔案)';
+                    const submitTime = hw.submitted_at ? new Date(hw.submitted_at).toLocaleString('zh-TW', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '--';
+                    const dlBtn = hw.downloadUrl 
+                        ? `<a href="${hw.downloadUrl}" download class="btn btn-sm btn-blue" style="margin-right:4px">⬇️ 下載</a>`
+                        : '';
+                    html += `<tr>
+                        <td>${stu.name}</td>
+                        <td>${stu.class_name}</td>
+                        <td>${stu.card_uid}</td>
+                        <td>${statusBadge}</td>
+                        <td>${filename}</td>
+                        <td>${submitTime}</td>
+                        <td>${dlBtn}</td>
+                    </tr>`;
+                }
+            } else {
+                // 未繳交
+                html += `<tr>
+                    <td>${stu.name}</td>
+                    <td>${stu.class_name}</td>
+                    <td>${stu.card_uid}</td>
+                    <td>${statusBadge}</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                </tr>`;
+            }
+        }
+
+        document.getElementById('hw-tbody').innerHTML = html || '<tr><td colspan="7" class="empty-msg">無學生</td></tr>';
     } catch(e) {
-        document.getElementById('hw-tbody').innerHTML = `<tr><td colspan="5" style="color:var(--red);text-align:center;padding:24px">${e.message}</td></tr>`;
+        document.getElementById('hw-tbody').innerHTML = `<tr><td colspan="7" style="color:var(--red);text-align:center;padding:24px">${e.message}</td></tr>`;
     }
-}
-function renderHomeworkT() {
-    const fs = document.getElementById('hw-stu').value;
-    const fk = document.getElementById('hw-kw').value.trim().toLowerCase();
-    let list = allHomeworks;
-    if (fs) list = list.filter(h=>h.name===fs);
-    if (fk) list = list.filter(h=>h.title.toLowerCase().includes(fk));
-    document.getElementById('hw-summary').textContent = `共 ${list.length} 筆`;
-    document.getElementById('hw-tbody').innerHTML = list.length ? list.map(h=>{
-        const dt = h.submitted_at ? new Date(h.submitted_at).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '--';
-        return `<tr><td>${h.name}</td><td>${h.class_name}</td><td>${h.title}</td><td>${dt}</td>
-            <td>${h.link?`<a href="${h.link}" target="_blank" style="color:#60a5fa">🔗 開啟</a>`:'--'}</td></tr>`;
-    }).join('') : '<tr><td colspan="5" class="empty-msg">無符合記錄</td></tr>';
 }
 
 // ===== INIT =====

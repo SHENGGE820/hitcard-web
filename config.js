@@ -1,7 +1,16 @@
-// Firebase 配置 - 直接連 Firebase REST API（不需要本地伺服器）
+// Firebase 配置 - 用於 Realtime Database 和 Cloud Storage
 const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyDummy",  // 網頁可用的公開 API Key（Cloud Storage 需要）
+    authDomain: "hitcard-system.firebaseapp.com",
+    projectId: "hitcard-system",
+    storageBucket: "hitcard-system.appspot.com",
     databaseURL: 'https://hitcard-system-default-rtdb.asia-southeast1.firebasedatabase.app',
 };
+
+// 初始化 Firebase (如果前端需要 SDK - 暫用 REST API)
+// import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js';
+// const app = initializeApp(FIREBASE_CONFIG);
+// export { app };
 
 // Firebase REST API 端點（瀏覽器可直連，前提是 Firebase 規則開放讀取）
 function getStudentsUrl() {

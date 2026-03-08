@@ -283,16 +283,15 @@ table.data-table tr:hover td { background: rgba(255,255,255,.02); }
     <!-- ===== 作業管理 ===== -->
     <div id="tab-homework" class="tab-content">
       <div class="controls">
-        <label>學生：</label>
-        <select id="hw-stu" onchange="renderHomeworkT()"><option value="">全部</option></select>
-        <input type="text" id="hw-kw" placeholder="作業名稱" oninput="renderHomeworkT()" style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;width:180px">
-        <button class="btn btn-green btn-sm" onclick="loadTeacherHomeworkT()">🔄</button>
+        <label>作業日期：</label>
+        <input type="date" id="hw-date-filter" onchange="loadTeacherHomeworkT()" value="">
+        <button class="btn btn-green btn-sm" onclick="loadTeacherHomeworkT()">🔄 重新載入</button>
       </div>
       <div id="hw-summary" style="color:var(--muted);font-size:13px;margin-bottom:12px"></div>
       <div class="tbl-wrap">
         <table class="data-table">
-          <thead><tr><th>學生</th><th>班級</th><th>作業名稱</th><th>繳交時間</th><th>連結</th></tr></thead>
-          <tbody id="hw-tbody"><tr><td colspan="5" class="loading-msg">尚未載入</td></tr></tbody>
+          <thead><tr><th>學生名稱</th><th>班級</th><th>卡號</th><th>狀態</th><th>檔案名稱</th><th>繳交時間</th><th>操作</th></tr></thead>
+          <tbody id="hw-tbody"><tr><td colspan="7" class="loading-msg">請選擇日期</td></tr></tbody>
         </table>
       </div>
     </div>
