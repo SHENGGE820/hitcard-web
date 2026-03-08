@@ -1,6 +1,20 @@
 // ========== TEACHER ADMIN JS ==========
 const DB = FIREBASE_CONFIG.databaseURL;
 
+async function forceDownload(url, filename) {
+    try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    } catch(e) {
+        window.open(url, '_blank');
+    }
+}
+
 // ===== Firebase helpers =====
 async function fbGet(path) {
     const r = await fetch(`${DB}/${path}.json`);
@@ -536,7 +550,7 @@ async function loadTeacherHomeworkT() {
                     const filename = hw.filename || '(無名檔案)';
                     const submitTime = hw.submitted_at ? new Date(hw.submitted_at).toLocaleString('zh-TW', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '--';
                     const dlBtn = hw.downloadUrl 
-                        ? `<a href="${hw.downloadUrl}" target="_blank" class="btn btn-sm btn-blue" style="margin-right:4px">🔍 開啟</a><a href="${hw.downloadUrl}" download="${filename}" class="btn btn-sm btn-blue">⬇️ 下載</a>`
+                        ? `<a href="${hw.downloadUrl}" target="_blank" class="btn btn-sm btn-blue" style="margin-right:4px">🔍 開啟</a><a href="javascript:void(0)" onclick="forceDownload('${hw.downloadUrl}', '${filename.replace(/'/g, '')}')" class="btn btn-sm btn-blue">⬇️ 下載</a>`
                         : '';
                     html += `<tr>
                         <td>${stu.name}</td>

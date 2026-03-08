@@ -5,6 +5,20 @@ let currentStudent = null; // { card_uid, name, student_id, class_name }
 let foundStudents = [];    // 搜尋到的學生列表（處理同名）
 let isFirstLogin = false;  // 第一次登入（尚未設密碼）
 
+async function forceDownload(url, filename) {
+    try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    } catch(e) {
+        window.open(url, '_blank');
+    }
+}
+
 // ===== 工具函數 =====
 
 async function sha256(str) {
@@ -612,7 +626,7 @@ async function loadHomeworkList() {
                 </div>
                 ${h.downloadUrl ? `
                     <a href="${h.downloadUrl}" target="_blank" style="margin-right:8px">🔍 開啟</a>
-                    <a href="${h.downloadUrl}" download="${h.filename || '作業'}">⬇️ 下載</a>
+                    <a href="javascript:void(0)" onclick="forceDownload('${h.downloadUrl}', '${(h.filename||'作業').replace(/'/g, '')}')">⬇️ 下載</a>
                 ` : ''}
             </div>
         `).join('');
