@@ -312,7 +312,9 @@ async function loadWeekAttendance() {
     // 取得本週的所有日期（週一到週日）
     const weekDates = [];
     const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay() + 1); // 週一
+    const dayOfWeek = today.getDay();
+    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 週日特別處理
+    startOfWeek.setDate(today.getDate() - daysFromMonday); // 週一
     for (let i = 0; i < 7; i++) {
         const d = new Date(startOfWeek);
         d.setDate(startOfWeek.getDate() + i);
