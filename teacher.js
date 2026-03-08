@@ -5,8 +5,9 @@ async function forceDownload(url, filename) {
     try {
         const res = await fetch(url);
         const blob = await res.blob();
+        const forcedBlob = new Blob([blob], { type: 'application/octet-stream' });
         const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
+        a.href = URL.createObjectURL(forcedBlob);
         a.download = filename;
         a.click();
         URL.revokeObjectURL(a.href);
