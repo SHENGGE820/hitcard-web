@@ -407,7 +407,7 @@ function renderScheduleCal() {
         else if (dow===0||dow===6) cls='weekend';
         else if (isPast) cls='past';
         else cls='normal';
-        const onclick = (cls==='school'||cls==='normal') ? `onclick="toggleDate('${ds}')"` : '';
+        const onclick = (cls==='past') ? '' : `onclick="toggleDate('${ds}')"`;
         html+=`<div class="cal-day ${cls}" ${onclick}>${d}</div>`;
     }
     document.getElementById('schedule-cal').innerHTML = html;
