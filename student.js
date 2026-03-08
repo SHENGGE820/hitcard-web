@@ -610,7 +610,10 @@ async function loadHomeworkList() {
                     繳交時間：${new Date(h.submitted_at).toLocaleString('zh-TW')} |
                     檔案大小：${(h.filesize / 1024 / 1024).toFixed(2)}MB
                 </div>
-                ${h.downloadUrl ? `<a href="${h.downloadUrl}" target="_blank" download>⬇️ 下載</a>` : ''}
+                ${h.downloadUrl ? `
+                    <a href="${h.downloadUrl}" target="_blank" style="margin-right:8px">🔍 開啟</a>
+                    <a href="${h.downloadUrl}" download="${h.filename || '作業'}">⬇️ 下載</a>
+                ` : ''}
             </div>
         `).join('');
     } catch (e) { console.error('載入作業記錄失敗', e); }

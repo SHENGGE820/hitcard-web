@@ -536,7 +536,7 @@ async function loadTeacherHomeworkT() {
                     const filename = hw.filename || '(無名檔案)';
                     const submitTime = hw.submitted_at ? new Date(hw.submitted_at).toLocaleString('zh-TW', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '--';
                     const dlBtn = hw.downloadUrl 
-                        ? `<a href="${hw.downloadUrl}" download class="btn btn-sm btn-blue" style="margin-right:4px">⬇️ 下載</a>`
+                        ? `<a href="${hw.downloadUrl}" target="_blank" class="btn btn-sm btn-blue" style="margin-right:4px">🔍 開啟</a><a href="${hw.downloadUrl}" download="${filename}" class="btn btn-sm btn-blue">⬇️ 下載</a>`
                         : '';
                     html += `<tr>
                         <td>${stu.name}</td>
