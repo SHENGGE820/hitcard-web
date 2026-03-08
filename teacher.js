@@ -241,15 +241,13 @@ async function loadMonthlyT() {
                 if (v?.in&&v?.out) { present++; badges+=`<span style="display:inline-block;padding:3px 7px;background:#064e3b;color:#6ee7b7;border-radius:5px;font-size:12px;margin:2px">${d}✓</span>`; }
                 else               { absent++;  badges+=`<span style="display:inline-block;padding:3px 7px;background:#450a0a;color:#fca5a5;border-radius:5px;font-size:12px;margin:2px">${d}✗</span>`; }
             }
-            const rate = total>0 ? ((present/total)*100).toFixed(1) : '0';
             html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px">
                 <div style="font-size:16px;font-weight:700;margin-bottom:4px">${stu.name}</div>
                 <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${stu.student_id||''}</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
                     <div style="text-align:center"><div style="font-size:20px;font-weight:700;color:var(--blue)">${total}</div><div style="font-size:11px;color:var(--muted)">應上課</div></div>
                     <div style="text-align:center"><div style="font-size:20px;font-weight:700;color:var(--green)">${present}</div><div style="font-size:11px;color:var(--muted)">出席</div></div>
                     <div style="text-align:center"><div style="font-size:20px;font-weight:700;color:var(--red)">${absent}</div><div style="font-size:11px;color:var(--muted)">缺席</div></div>
-                    <div style="text-align:center"><div style="font-size:20px;font-weight:700;color:var(--yellow)">${rate}%</div><div style="font-size:11px;color:var(--muted)">出席率</div></div>
                 </div>
                 <div style="font-size:12px;color:var(--muted);margin-bottom:6px">各日考勤</div>
                 <div style="display:flex;flex-wrap:wrap;gap:3px">${badges||'<span style="color:var(--muted);font-size:12px">無記錄</span>'}</div>

@@ -458,12 +458,9 @@ async function loadMonthly() {
             else                                 { absentDays++;  dayStatus[dateStr] = 'absent'; }
         }
 
-        const rate = totalDays > 0 ? ((presentDays / totalDays) * 100).toFixed(1) : '0';
-
         document.getElementById('stat-present').textContent = presentDays;
         document.getElementById('stat-absent').textContent  = absentDays;
         document.getElementById('stat-total').textContent   = totalDays;
-        document.getElementById('stat-rate').textContent    = rate + '%';
 
         renderCalendar(year, month, daysInMonth, dayStatus);
 
