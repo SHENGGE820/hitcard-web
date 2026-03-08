@@ -174,8 +174,8 @@ async function loadTodayT() {
             const recs = dayRecs.filter(r => r.card_uid?.toUpperCase() === stu.card_uid?.toUpperCase());
             const inRec  = recs.find(r=>r.check_type==='check_in');
             const outRec = recs.find(r=>r.check_type==='check_out');
-            const inTime  = inRec?.check_time?.split(' ')[1]?.slice(0,5) || '--';
-            const outTime = outRec?.check_time?.split(' ')[1]?.slice(0,5) || '--';
+            const inTime  = inRec  ? (inRec.check_time.includes(' ')  ? inRec.check_time.split(' ')[1].slice(0,5)  : inRec.check_time.slice(0,5))  : '--';
+            const outTime = outRec ? (outRec.check_time.includes(' ') ? outRec.check_time.split(' ')[1].slice(0,5) : outRec.check_time.slice(0,5)) : '--';
             let badge;
             if (inRec && outRec) { badge=`<span class="badge badge-green">✓ 出席</span>`; present++; checkOut++; }
             else if (inRec)      { badge=`<span class="badge badge-blue">→ 上課中</span>`; present++; }
