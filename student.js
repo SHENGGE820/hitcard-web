@@ -537,13 +537,11 @@ async function submitHomework() {
     if (!hwDate) { showToast('請選擇作業日期'); return; }
     if (!file) { showToast('請選擇檔案'); return; }
     
-    // 驗証檔案格式
     if (!ALLOWED_FILES.test(file.name)) {
         showToast('❌ 不支持的檔案格式。允許：PDF、Word、Excel、圖片等');
         return;
     }
     
-    // 驗証檔案大小
     if (file.size > MAX_FILE_SIZE) {
         showToast(`❌ 檔案過大（${(file.size / 1024 / 1024).toFixed(1)}MB > 50MB）`);
         return;
@@ -554,27 +552,37 @@ async function submitHomework() {
     btn.textContent = '上傳中...';
 
     try {
-        // 上傳至 LINE Bot API
-        const formData = new FormData();
-        formData.append('card_uid', currentStudent.card_uid);
-        formData.append('hw_date', hwDate);
-        formData.append('file', file);
+        const bucket = 'hitcard-system.firebasestorage.app';
+        const timestamp = Date.now();
+        const storagePath = `homeworks/${hwDate}/${currentStudent.card_uid}/${timestamp}_${file.name}`;
+        const encodedPath = encodeURIComponent(storagePath);
+        const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}`;
 
-        const response = await fetch('https://directive-clothing-cope-scott.trycloudflare.com/api/homework/upload', {
+        const uploadRes = await fetch(uploadUrl, {
             method: 'POST',
-            body: formData
+            headers: { 'Content-Type': file.type || 'application/octet-stream' },
+            body: file
         });
 
-        const result = await response.json();
-        
-        if (result.success) {
-            showToast('✅ 作業已上傳');
-            fileInput.value = '';
-            dateInput.value = new Date().toISOString().split('T')[0];
-            loadHomeworkList();
-        } else {
-            showToast(`❌ 上傳失敗: ${result.error}`);
+        if (!uploadRes.ok) {
+            const err = await uploadRes.json();
+            throw new Error(err.error?.message || '上傳失敗');
         }
+
+        const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodedPath}?alt=media`;
+
+        await firebasePost(`students/${currentStudent.card_uid}/homeworks`, {
+            date: hwDate,
+            filename: file.name,
+            filesize: file.size,
+            submitted_at: new Date().toISOString(),
+            downloadUrl: downloadUrl
+        });
+
+        showToast('✅ 作業已上傳');
+        fileInput.value = '';
+        dateInput.value = new Date().toISOString().split('T')[0];
+        loadHomeworkList();
     } catch (e) {
         showToast(`❌ 上傳出錯: ${e.message}`);
     } finally {
