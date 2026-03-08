@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>學生管理網站</title>
+  <link rel="icon" type="image/png" href="C:/Users/daoso/Downloads/學生IOCN.png">
+  <style>
+    :root{--bg:#ffffff;--fg:#222}
+    .dark{--bg:#121212;--fg:#eaeaea}
+    body{background:var(--bg);color:var(--fg);font-family:system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;margin:0;padding:0;scroll-behavior:smooth;overflow-x:hidden}
+    .topnav{position:fixed;inset:0 0 auto 0;background:transparent;border-bottom:1px solid rgba(0,0,0,0.06);backdrop-filter: blur(6px);z-index:40}
+    .topnav .wrap{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:1rem;padding:0 1rem}
+    .menu{list-style:none;display:flex;gap:0;margin:0;padding:0}
+    .menu > li{position:relative}
+    .menu button{background:transparent;padding:1.3rem 2.3rem;border-radius:0;font-size:1.7rem;font-weight:500;transition:all 0.3s ease;cursor:pointer;border:none;height:100%}
+    .menu button:hover{background:linear-gradient(180deg, #667eea 0%, #764ba2 100%);color:white;box-shadow:0 4px 12px rgba(102, 126, 234, 0.4)}
+    .menu .dropdown{position:absolute;left:0;top:calc(100% + .5rem);min-width:220px;background:var(--bg);box-shadow:0 6px 20px rgba(0,0,0,0.12);border-radius:8px;padding:.6rem;display:none}
+    .menu li.open > button{font-weight:700}
+    .menu li.open .dropdown{display:block}
+    .card{max-width:640px;margin:4.5rem auto 0 auto;padding:1.5rem;border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,0.08);background:rgba(255,255,255,0.6)}
+    .dark .card{background:rgba(0,0,0,0.35)}
+    button{margin-right:.5rem;padding:.5rem 1rem;border:0;border-radius:6px;cursor:pointer}
+    .section{width:100%;min-height:100vh;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;background-size:cover;background-position:center;margin:0;padding:0;transform-origin:center center}
+    #section1{background-image:url('./background/GwsEtdJakAAv9UW.jpg')}
+    #section2{background-image:url('./background/133137632_p0.png');color:white;margin-top:-5px}
+    .loader{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999;transition:opacity 0.5s ease;flex-direction:column}
+    .loader.hidden{opacity:0;pointer-events:none}
+    .running-man{position:relative;width:120px;height:120px}
+    .road{position:absolute;width:200px;height:30px;background:#555;left:-40px;top:115px;border-radius:3px;box-shadow:inset 0 2px 5px rgba(0,0,0,0.3)}
+    .road-line{position:absolute;width:30px;height:3px;background:#fff;top:13px;animation:road-line-move 0.8s linear infinite}
+    .road-line-1{left:10px}
+    .road-line-2{left:60px}
+    .road-line-3{left:110px}
+    .road-line-4{left:160px}
+    @keyframes road-line-move{0%{opacity:1}50%{opacity:0.3}100%{opacity:1}}
+    .man-head{position:absolute;width:20px;height:20px;background:#764ba2;border-radius:50%;left:50px;top:10px}
+    .man-body{position:absolute;width:4px;height:40px;background:#667eea;left:58px;top:30px;border-radius:2px}
+    .man-arm{position:absolute;width:4px;height:35px;background:#667eea;border-radius:2px;left:58px;top:32px;transform-origin:top center}
+    .man-arm-left{animation:arm-left 0.6s infinite}
+    .man-arm-right{animation:arm-right 0.6s infinite}
+    .man-leg{position:absolute;width:4px;height:45px;background:#667eea;border-radius:2px;left:58px;top:68px;transform-origin:top center}
+    .man-leg-left{animation:leg-left 0.6s infinite}
+    .man-leg-right{animation:leg-right 0.6s infinite}
+    @keyframes run-move{0%{transform:translateX(-60px)}100%{transform:translateX(60px)}}
+    @keyframes arm-left{0%,100%{transform:rotate(-60deg)}50%{transform:rotate(40deg)}}
+    @keyframes arm-right{0%,100%{transform:rotate(40deg)}50%{transform:rotate(-60deg)}}
+    @keyframes leg-left{0%,100%{transform:rotate(30deg)}50%{transform:rotate(-40deg)}}
+    @keyframes leg-right{0%,100%{transform:rotate(-40deg)}50%{transform:rotate(30deg)}}
+    .loader-text{color:white;margin-top:50px;font-size:18px;animation:pulse 1.5s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+    footer{background:#333;color:white;padding:2rem;text-align:center;margin:0;border-top:3px solid #667eea}
+    .footer-nav{list-style:none;display:flex;gap:1rem;justify-content:center;margin:1rem 0;padding:0;flex-wrap:wrap}
+    .footer-nav li{position:relative}
+    .footer-nav a{color:white;text-decoration:none;padding:0.5rem 1rem;transition:all 0.3s ease;display:inline-block;border-radius:4px}
+    .footer-nav a:hover{background:#667eea;color:white}
+    .footer-info{font-size:0.9rem;color:#ccc;margin-top:1rem}
+    .dark footer{background:#1a1a1a;border-top-color:#764ba2}
+  </style>
+</head>
+<body>
+  <div class="loader" id="loader">
+    <div class="running-man">
+      <div class="road">
+        <div class="road-line road-line-1"></div>
+        <div class="road-line road-line-2"></div>
+        <div class="road-line road-line-3"></div>
+        <div class="road-line road-line-4"></div>
+      </div>
+      <div class="man-head"></div>
+      <div class="man-body"></div>
+      <div class="man-arm man-arm-left"></div>
+      <div class="man-arm man-arm-right"></div>
+      <div class="man-leg man-leg-left"></div>
+      <div class="man-leg man-leg-right"></div>
+    </div>
+    <div class="loader-text">載入中...</div>
+  </div>
+
+  <nav class="topnav" aria-label="主選單">
+    <div class="wrap">
+      <ul class="menu" role="menubar">
+        <li role="none"><button role="menuitem"><a href="index.html" style="color:inherit;text-decoration:none">選單 1</a></button></li>
+        <li role="none"><button role="menuitem"><a href="about.html" style="color:inherit;text-decoration:none">選單 2</a></button></li>
+        <li role="none"><button role="menuitem">選單 3</button></li>
+        <li role="none"><button role="menuitem">選單 4</button></li>
+        <li role="none"><button role="menuitem">選單 5</button></li>
+      </ul>
+    </div>
+  </nav>
+
+  <section id="section1" class="section">
+    <div class="card">
+      <h1>第一部分</h1>
+      <p>滑鼠懸停此區域可跳轉到下一頁</p>
+      <p style="margin-top:1rem;font-size:0.9rem;color:var(--fg)">或向下滾動查看第二部分</p>
+    </div>
+  </section>
+
+  <section id="section2" class="section">
+    <div class="card" style="background:rgba(255,255,255,0.1);color:white">
+      <h1>第二部分</h1>
+      <p><a href="about.html" style="color:white;text-decoration:underline">點擊這裡查看自我介紹</a></p>
+      <button id="themeBtn" style="background:white;color:#667eea">切換主題</button>
+      <button id="dateBtn" style="background:white;color:#667eea">顯示日期</button>
+      <p id="date" aria-live="polite" style="margin-top:1rem;font-weight:600"></p>
+    </div>
+  </section>
+
+  <footer>
+    <ul class="footer-nav">
+      <li><a href="index.html">首頁</a></li>
+      <li><a href="about.html">自我介紹</a></li>
+      <li><a href="#">關於</a></li>
+      <li><a href="#">聯絡</a></li>
+    </ul>
+    <div class="footer-info">
+      <p>&copy; 2026 個人網站. 版權所有.</p>
+      <p>手機: 09XX-XXXXXX | 信箱: example@email.com</p>
+    </div>
+  </footer>
+
+  <script>
+    const themeBtn = document.getElementById('themeBtn');
+    const dateBtn = document.getElementById('dateBtn');
+    const dateP = document.getElementById('date');
+    const loader = document.getElementById('loader');
+    const sections = [
+      document.getElementById('section1'),
+      document.getElementById('section2')
+    ];
+    const firstLi = document.querySelector('.menu > li:first-child');
+    const otherLis = document.querySelectorAll('.menu > li:not(:first-child)');
+
+    // 頁面加載完成後隱藏加載動畫
+    window.addEventListener('load', ()=>{
+      setTimeout(()=>{
+        loader.classList.add('hidden');
+      }, 500);
+    });
+
+    // 第一個選單：滑鼠懸停控制
+    if(firstLi) {
+      firstLi.addEventListener('mouseenter', ()=>{ firstLi.classList.add('open'); });
+      firstLi.addEventListener('mouseleave', ()=>{ firstLi.classList.remove('open'); });
+    }
+
+    // 其他選單：點擊控制
+    otherLis.forEach(li => {
+      const btn = li.querySelector('button');
+      btn.addEventListener('click', (e)=>{
+        const open = li.classList.contains('open');
+        document.querySelectorAll('.menu > li').forEach(x=>{if(x!==firstLi) x.classList.remove('open');});
+        if(!open) li.classList.add('open');
+      });
+    });
+
+    // close menus when clicking outside
+    document.addEventListener('click', (e)=>{
+      if(!e.target.closest('.menu')) document.querySelectorAll('.menu > li').forEach(x=>x.classList.remove('open'));
+    });
+
+    themeBtn.addEventListener('click', ()=> document.documentElement.classList.toggle('dark'));
+    dateBtn.addEventListener('click', ()=> {
+      const d = new Date();
+      dateP.textContent = d.toLocaleString('zh-TW', {weekday:'short', year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+    });
+
+    // 滾輪控制跳轉
+    let isScrolling = false;
+    const allSections = [
+      document.getElementById('section1'),
+      document.getElementById('section2'),
+      document.querySelector('footer')
+    ];
+
+    function getCurrentSection() {
+      const scrollPos = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      
+      // 檢查是否在底部（頁尾）
+      if (scrollPos + windowHeight >= docHeight - 50) {
+        return 2; // footer
+      }
+      
+      // 使用每個區域的中心點來判斷
+      let closestIndex = 0;
+      let minDistance = Infinity;
+      
+      for (let i = 0; i < allSections.length; i++) {
+        const rect = allSections[i].getBoundingClientRect();
+        const sectionCenter = rect.top + rect.height / 2;
+        const viewportCenter = windowHeight / 2;
+        const distance = Math.abs(sectionCenter - viewportCenter);
+        
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestIndex = i;
+        }
+      }
+      
+      return closestIndex;
+    }
+
+    window.addEventListener('wheel', (e) => {
+      if (isScrolling) return;
+      
+      e.preventDefault();
+      const currentIndex = getCurrentSection();
+      
+      if (e.deltaY > 30) {
+        // 往下滾動
+        if (currentIndex < allSections.length - 1) {
+          isScrolling = true;
+          allSections[currentIndex + 1].scrollIntoView({ behavior: 'smooth' });
+          setTimeout(() => { isScrolling = false; }, 500);
+        }
+      } else if (e.deltaY < -30) {
+        // 往上滾動
+        if (currentIndex > 0) {
+          isScrolling = true;
+          if (currentIndex === 1) {
+            // 如果從第二部分往上滑，滾動到頁面最頂部
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            allSections[currentIndex - 1].scrollIntoView({ behavior: 'smooth' });
+          }
+          setTimeout(() => { isScrolling = false; }, 500);
+        }
+      }
+    }, { passive: false });
+
+    // 視差滾動效果
+    function updateParallax() {
+      const scrollPos = window.scrollY;
+      const windowHeight = window.innerHeight;
+      
+      // 處理第一部分
+      const section1Rect = sections[0].getBoundingClientRect();
+      const section1Height = section1Rect.height;
+      
+      if (section1Rect.top >= -50 && section1Rect.top <= 50) {
+        // 當第一部分接近頂部時，恢復原樣
+        sections[0].style.transform = 'scale(1)';
+      } else if (section1Rect.top < -50) {
+        // 第一部分往上滑出時縮小，使用較平緩的曲線
+        const progress = Math.min(Math.abs(section1Rect.top + 50) / (section1Height / 3), 1);
+        const scale = 1 - (progress * 0.12);
+        sections[0].style.transform = `scale(${scale})`;
+      } else {
+        sections[0].style.transform = 'scale(1)';
+      }
+      
+      // 處理第二部分 - 只在進入時有動畫
+      const section2Rect = sections[1].getBoundingClientRect();
+      const section1Bottom = sections[0].offsetHeight;
+      
+      if (section2Rect.top > 0 && section2Rect.top < windowHeight && scrollPos < section1Bottom) {
+        // 只有在第一部分往下滑，第二部分進入時有動畫
+        const progress = (windowHeight - section2Rect.top) / windowHeight;
+        const scale = 0.88 + (progress * 0.12);
+        const translateY = (1 - progress) * 20;
+        sections[1].style.transform = `scale(${scale}) translateY(${translateY}px)`;
+      } else {
+        // 其他情況保持原樣
+        sections[1].style.transform = 'scale(1)';
+      }
+    }
+
+    window.addEventListener('scroll', updateParallax);
+    updateParallax(); // 初始化
+  </script>
+</body>
+</html>
