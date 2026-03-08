@@ -226,7 +226,6 @@ function enterMainPage() {
     document.getElementById('main-page').style.display = 'block';
 
     document.getElementById('top-name').textContent = currentStudent.name;
-    document.getElementById('top-class').textContent = currentStudent.class_name || '學生';
 
     // 設定今天日期
     const today = new Date();

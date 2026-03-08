@@ -211,8 +211,8 @@ table.data-table tr:hover td { background: rgba(255,255,255,.02); }
       </div>
       <div class="tbl-wrap">
         <table class="data-table">
-          <thead><tr><th>姓名</th><th>班級</th><th>學號</th><th>上課打卡</th><th>下課打卡</th><th>狀態</th></tr></thead>
-          <tbody id="today-tbody"><tr><td colspan="6" class="loading-msg">載入中...</td></tr></tbody>
+          <thead><tr><th>姓名</th><th>學號</th><th>上課打卡</th><th>下課打卡</th><th>狀態</th></tr></thead>
+          <tbody id="today-tbody"><tr><td colspan="5" class="loading-msg">載入中...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -238,8 +238,8 @@ table.data-table tr:hover td { background: rgba(255,255,255,.02); }
       </div>
       <div class="tbl-wrap">
         <table class="data-table">
-          <thead><tr><th>姓名</th><th>卡號（UID）</th><th>學號</th><th>班級</th><th>操作</th></tr></thead>
-          <tbody id="student-tbody"><tr><td colspan="5" class="loading-msg">載入中...</td></tr></tbody>
+          <thead><tr><th>姓名</th><th>卡號（UID）</th><th>學號</th><th>操作</th></tr></thead>
+          <tbody id="student-tbody"><tr><td colspan="4" class="loading-msg">載入中...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -277,8 +277,8 @@ table.data-table tr:hover td { background: rgba(255,255,255,.02); }
       <div id="lv-summary" style="color:var(--muted);font-size:13px;margin-bottom:12px"></div>
       <div class="tbl-wrap">
         <table class="data-table">
-          <thead><tr><th>學生</th><th>班級</th><th>請假日期</th><th>原因</th><th>申請時間</th></tr></thead>
-          <tbody id="lv-tbody"><tr><td colspan="5" class="loading-msg">尚未載入</td></tr></tbody>
+          <thead><tr><th>學生</th><th>請假日期</th><th>原因</th><th>申請時間</th></tr></thead>
+          <tbody id="lv-tbody"><tr><td colspan="4" class="loading-msg">尚未載入</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -293,8 +293,8 @@ table.data-table tr:hover td { background: rgba(255,255,255,.02); }
       <div id="hw-summary" style="color:var(--muted);font-size:13px;margin-bottom:12px"></div>
       <div class="tbl-wrap">
         <table class="data-table">
-          <thead><tr><th>學生名稱</th><th>班級</th><th>卡號</th><th>狀態</th><th>檔案名稱</th><th>繳交時間</th><th>操作</th></tr></thead>
-          <tbody id="hw-tbody"><tr><td colspan="7" class="loading-msg">請選擇日期</td></tr></tbody>
+          <thead><tr><th>學生名稱</th><th>卡號</th><th>狀態</th><th>檔案名稱</th><th>繳交時間</th><th>操作</th></tr></thead>
+          <tbody id="hw-tbody"><tr><td colspan="6" class="loading-msg">請選擇日期</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -317,10 +317,6 @@ table.data-table tr:hover td { background: rgba(255,255,255,.02); }
     <div class="form-group">
       <label>學號</label>
       <input type="text" id="f-sid" placeholder="選填">
-    </div>
-    <div class="form-group">
-      <label>班級</label>
-      <input type="text" id="f-class" placeholder="選填">
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeStudentModal()">取消</button>
