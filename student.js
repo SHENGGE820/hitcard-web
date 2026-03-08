@@ -560,7 +560,7 @@ async function submitHomework() {
         formData.append('hw_date', hwDate);
         formData.append('file', file);
 
-        const response = await fetch('https://reached-struck-exhibition-controversial.trycloudflare.com/api/homework/upload', {
+        const response = await fetch('https://directive-clothing-cope-scott.trycloudflare.com/api/homework/upload', {
             method: 'POST',
             body: formData
         });
