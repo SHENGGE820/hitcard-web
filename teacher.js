@@ -320,7 +320,7 @@ function openStudentModal(student=null) {
 function closeStudentModal() { document.getElementById('student-modal').classList.remove('open'); }
 async function notifyLate(cardUid, studentName) {
     try {
-        const response = await fetch('/hitcard-web/api/remind_late', {
+        const response = await fetch('https://web-production-a3f18.up.railway.app/api/remind_late', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ card_uid: cardUid.toUpperCase(), name: studentName })
