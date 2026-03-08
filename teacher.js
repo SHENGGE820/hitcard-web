@@ -401,13 +401,11 @@ function renderScheduleCal() {
     for (let d=1;d<=daysInMonth;d++) {
         const ds = `${schedYear}-${String(schedMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
         const dow = new Date(ds+'T00:00:00').getDay();
-        const isPast = ds < today;
         let cls;
         if (editingDates.has(ds)) cls='school';
         else if (dow===0||dow===6) cls='weekend';
-        else if (isPast) cls='past';
         else cls='normal';
-        const onclick = (cls==='past') ? '' : `onclick="toggleDate('${ds}')"`;
+        const onclick = `onclick="toggleDate('${ds}')"`;
         html+=`<div class="cal-day ${cls}" ${onclick}>${d}</div>`;
     }
     document.getElementById('schedule-cal').innerHTML = html;
