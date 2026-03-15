@@ -707,7 +707,7 @@ async function doRegister() {
 
         // 自動登入
         currentStudent = { card_uid: tempUid, name, student_id: sid, class_name: cls };
-        sessionStorage.setItem('student_session', JSON.stringify(currentStudent));
+        sessionStorage.setItem('student', JSON.stringify(currentStudent));
         enterMainPage();
         showToast(`✅ 註冊成功！歡迎 ${name}（尚無卡號，請聯繫老師完成綁定）`);
 
