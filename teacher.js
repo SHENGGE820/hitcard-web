@@ -181,11 +181,11 @@ async function loadTodayT() {
             else if (inRec)      { badge=`<span class="badge badge-blue">→ 上課中</span>`; present++; }
             else                 { badge=`<span class="badge badge-red">✗ 未到</span>`; absent++; }
             html += `<tr>
-                <td>${stu.name}</td><td>${stu.student_id||'--'}</td>
+                <td>${stu.name}</td><td>${stu.class_name||'--'}</td><td>${stu.student_id||'--'}</td>
                 <td>${inTime}</td><td>${outTime}</td><td>${badge}</td>
             </tr>`;
         }
-        document.getElementById('today-tbody').innerHTML = html || '<tr><td colspan="5" class="empty-msg">無資料</td></tr>';
+        document.getElementById('today-tbody').innerHTML = html || '<tr><td colspan="6" class="empty-msg">無資料</td></tr>';
         document.getElementById('ts-total').textContent  = students.length;
         document.getElementById('ts-in').textContent     = present;
         document.getElementById('ts-absent').textContent = absent;
@@ -241,13 +241,15 @@ async function loadMonthlyT() {
                 if (v?.in&&v?.out) { present++; badges+=`<span style="display:inline-block;padding:3px 7px;background:#064e3b;color:#6ee7b7;border-radius:5px;font-size:12px;margin:2px">${d}✓</span>`; }
                 else               { absent++;  badges+=`<span style="display:inline-block;padding:3px 7px;background:#450a0a;color:#fca5a5;border-radius:5px;font-size:12px;margin:2px">${d}✗</span>`; }
             }
+            const rate = total>0 ? ((present/total)*100).toFixed(1) : '0';
             html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px">
                 <div style="font-size:16px;font-weight:700;margin-bottom:4px">${stu.name}</div>
-                <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${stu.student_id||''}</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+                <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${stu.class_name||''} ${stu.student_id?'· '+stu.student_id:''}</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px">
                     <div style="text-align:center"><div style="font-size:20px;font-weight:700;color:var(--blue)">${total}</div><div style="font-size:11px;color:var(--muted)">應上課</div></div>
                     <div style="text-align:center"><div style="font-size:20px;font-weight:700;color:var(--green)">${present}</div><div style="font-size:11px;color:var(--muted)">出席</div></div>
                     <div style="text-align:center"><div style="font-size:20px;font-weight:700;color:var(--red)">${absent}</div><div style="font-size:11px;color:var(--muted)">缺席</div></div>
+                    <div style="text-align:center"><div style="font-size:20px;font-weight:700;color:var(--yellow)">${rate}%</div><div style="font-size:11px;color:var(--muted)">出席率</div></div>
                 </div>
                 <div style="font-size:12px;color:var(--muted);margin-bottom:6px">各日考勤</div>
                 <div style="display:flex;flex-wrap:wrap;gap:3px">${badges||'<span style="color:var(--muted);font-size:12px">無記錄</span>'}</div>
@@ -271,7 +273,7 @@ async function loadStudentMgmt() {
         if (data) {
             for (const [uid,d] of Object.entries(data)) {
                 if (uid.startsWith('-')||!d||typeof d!=='object') continue;
-                allStudentsList.push({card_uid:uid, name:d.name||'', student_id:d.student_id||''});
+                allStudentsList.push({card_uid:uid, name:d.name||'', student_id:d.student_id||'', class_name:d.class_name||''});
             }
         }
         allStudentsList.sort((a,b)=>a.name.localeCompare(b.name));
@@ -286,7 +288,7 @@ function filterStudents() {
         s.name.toLowerCase().includes(q) || s.card_uid.toLowerCase().includes(q) || s.student_id.toLowerCase().includes(q)
     ) : allStudentsList;
     if (!list.length) {
-        document.getElementById('student-tbody').innerHTML = '<tr><td colspan="4" class="empty-msg">沒有符合的學生</td></tr>';
+        document.getElementById('student-tbody').innerHTML = '<tr><td colspan="5" class="empty-msg">沒有符合的學生</td></tr>';
         return;
     }
     document.getElementById('student-tbody').innerHTML = list.map(s=>`
@@ -294,6 +296,7 @@ function filterStudents() {
             <td><strong>${s.name}</strong></td>
             <td style="font-family:monospace;color:var(--muted)">${s.card_uid}</td>
             <td>${s.student_id||'--'}</td>
+            <td>${s.class_name||'--'}</td>
             <td>
                 <button class="btn btn-ghost btn-sm" onclick='openStudentModal(${JSON.stringify(s)})'>✏️ 編輯</button>
                 <button class="btn btn-yellow btn-sm" style="margin-left:6px" onclick='notifyLate("${s.card_uid}","${s.name}")'>⏰ 遲到提醒</button>
@@ -310,6 +313,7 @@ function openStudentModal(student=null) {
     document.getElementById('f-carduid').style.opacity = student ? '.5' : '1';
     document.getElementById('f-name').value   = student?.name || '';
     document.getElementById('f-sid').value    = student?.student_id || '';
+    document.getElementById('f-class').value  = student?.class_name || '';
     document.getElementById('student-modal').classList.add('open');
     document.getElementById('f-name').focus();
 }
@@ -335,11 +339,12 @@ async function saveStudent() {
     const uid   = document.getElementById('f-carduid').value.trim().toUpperCase();
     const name  = document.getElementById('f-name').value.trim();
     const sid   = document.getElementById('f-sid').value.trim();
+    const cls   = document.getElementById('f-class').value.trim();
     if (!uid)  { showToast('請輸入卡號 UID'); return; }
     if (!name) { showToast('請輸入姓名'); return; }
     try {
         const existing = await fbGet(`students/${uid}`).catch(()=>null);
-        const payload = { name, student_id:sid };
+        const payload = { name, student_id:sid, class_name:cls };
         if (!existing) payload.created_at = new Date().toISOString();
         await fbPatch(`students/${uid}`, payload);
         showToast(editingUid ? '✅ 學生資料已更新' : '✅ 學生已新增');
@@ -448,7 +453,7 @@ async function loadTeacherLeaveT() {
                 if (uid.startsWith('-')||!stu||!stu.leave_requests) continue;
                 for (const lv of Object.values(stu.leave_requests)) {
                     if (!lv||typeof lv!=='object') continue;
-                    allLeaves.push({ name:stu.name||'?', date:lv.date||'', reason:lv.reason||'', submitted_at:lv.submitted_at||'' });
+                    allLeaves.push({ name:stu.name||'?', class_name:stu.class_name||'', date:lv.date||'', reason:lv.reason||'', submitted_at:lv.submitted_at||'' });
                 }
             }
         }
@@ -474,8 +479,8 @@ function renderLeaveT() {
     document.getElementById('lv-summary').textContent = `共 ${list.length} 筆`;
     document.getElementById('lv-tbody').innerHTML = list.length ? list.map(l=>{
         const dt = l.submitted_at ? new Date(l.submitted_at).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '--';
-        return `<tr><td>${l.name}</td><td>${l.date}</td><td>${l.reason}</td><td>${dt}</td></tr>`;
-    }).join('') : '<tr><td colspan="4" class="empty-msg">無符合記錄</td></tr>';
+        return `<tr><td>${l.name}</td><td>${l.class_name}</td><td>${l.date}</td><td>${l.reason}</td><td>${dt}</td></tr>`;
+    }).join('') : '<tr><td colspan="5" class="empty-msg">無符合記錄</td></tr>';
 }
 
 // ===== 作業管理 =====
@@ -505,6 +510,7 @@ async function loadTeacherHomeworkT() {
                 students.push({
                     card_uid: uid,
                     name: stu.name || '?',
+                    class_name: stu.class_name || '?',
                     student_id: stu.student_id || '?'
                 });
 
@@ -549,6 +555,7 @@ async function loadTeacherHomeworkT() {
                         : '';
                     html += `<tr>
                         <td>${stu.name}</td>
+                        <td>${stu.class_name}</td>
                         <td>${stu.card_uid}</td>
                         <td>${statusBadge}</td>
                         <td>${filename}</td>
@@ -560,6 +567,7 @@ async function loadTeacherHomeworkT() {
                 // 未繳交
                 html += `<tr>
                     <td>${stu.name}</td>
+                    <td>${stu.class_name}</td>
                     <td>${stu.card_uid}</td>
                     <td>${statusBadge}</td>
                     <td>-</td>
@@ -569,7 +577,7 @@ async function loadTeacherHomeworkT() {
             }
         }
 
-        document.getElementById('hw-tbody').innerHTML = html || '<tr><td colspan="6" class="empty-msg">無學生</td></tr>';
+        document.getElementById('hw-tbody').innerHTML = html || '<tr><td colspan="7" class="empty-msg">無學生</td></tr>';
     } catch(e) {
         document.getElementById('hw-tbody').innerHTML = `<tr><td colspan="7" style="color:var(--red);text-align:center;padding:24px">${e.message}</td></tr>`;
     }
@@ -582,8 +590,6 @@ async function loadTeacherHomeworkT() {
     document.getElementById('m-month').value = new Date().toISOString().slice(0,7);
     document.getElementById('pin-input').addEventListener('keypress', e=>{ if(e.key==='Enter') doLogin(); });
 
-    if (sessionStorage.getItem('teacher_auth')) {
-        enterApp(); return;
-    }
-    initAuth();
+    // Bypass login: always enter app so teachers don't need to input password
+    enterApp();
 })();

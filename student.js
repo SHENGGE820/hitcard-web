@@ -226,6 +226,7 @@ function enterMainPage() {
     document.getElementById('main-page').style.display = 'block';
 
     document.getElementById('top-name').textContent = currentStudent.name;
+    document.getElementById('top-class').textContent = currentStudent.class_name || '學生';
 
     // 設定今天日期
     const today = new Date();
@@ -286,7 +287,7 @@ async function loadTodayAttendance() {
 
         if (checkIn) {
             document.getElementById('checkin-icon').textContent = '✅';
-            document.getElementById('checkin-time').textContent = checkIn.check_time.includes(' ') ? checkIn.check_time.split(' ')[1].slice(0, 5) : checkIn.check_time.slice(0, 5);
+            document.getElementById('checkin-time').textContent = checkIn.check_time.split(' ')[1]?.slice(0, 5) || checkIn.check_time;
             document.getElementById('checkin-time').className = 'time';
         } else {
             document.getElementById('checkin-icon').textContent = '⏰';
@@ -296,7 +297,7 @@ async function loadTodayAttendance() {
 
         if (checkOut) {
             document.getElementById('checkout-icon').textContent = '✅';
-            document.getElementById('checkout-time').textContent = checkOut.check_time.includes(' ') ? checkOut.check_time.split(' ')[1].slice(0, 5) : checkOut.check_time.slice(0, 5);
+            document.getElementById('checkout-time').textContent = checkOut.check_time.split(' ')[1]?.slice(0, 5) || checkOut.check_time;
             document.getElementById('checkout-time').className = 'time';
         } else {
             document.getElementById('checkout-icon').textContent = '🏁';
@@ -308,7 +309,7 @@ async function loadTodayAttendance() {
 
 async function loadWeekAttendance() {
     const today = new Date();
-    // 取得本週的所有日期（週一到週日）
+    // 取得本週的所有日期
     const weekDates = [];
     const startOfWeek = new Date(today);
     const dayOfWeek = today.getDay();
@@ -322,17 +323,14 @@ async function loadWeekAttendance() {
 
     try {
         // 取得老師設定的上課日
-        let scheduleData = await firebaseGet('class_schedule').catch(() => null);
+        let scheduleData = await firebaseGet('class_schedule').catch(()=>null);
         if (!scheduleData?.class_dates?.length) {
             // fallback: 預設週一到週五
-            scheduleData = {
-                class_dates: weekDates.filter(date => {
-                    const dow = new Date(date + 'T00:00:00').getDay();
-                    return dow >= 1 && dow <= 5;
-                })
-            };
+            scheduleData = { class_dates: weekDates.filter(date => {
+                const dow = new Date(date + 'T00:00:00').getDay();
+                return dow >= 1 && dow <= 5;
+            }) };
         }
-        // 只顯示這週中老師設定的上課日
         const classDates = scheduleData.class_dates.filter(date => weekDates.includes(date));
 
         const all = await firebaseGet('attendance');
@@ -370,8 +368,8 @@ async function loadWeekAttendance() {
                     <div>
                         <div class="date">${label}</div>
                         <div class="reason" style="color:#64748b">
-                            ${checkIn ? '上課 ' + (checkIn.check_time.includes(' ') ? checkIn.check_time.split(' ')[1].slice(0,5) : checkIn.check_time.slice(0,5)) : ''}
-                            ${checkOut ? '・下課 ' + (checkOut.check_time.includes(' ') ? checkOut.check_time.split(' ')[1].slice(0,5) : checkOut.check_time.slice(0,5)) : ''}
+                            ${checkIn ? '上課 ' + (checkIn.check_time.split(' ')[1]?.slice(0,5) || '') : ''}
+                            ${checkOut ? '・下課 ' + (checkOut.check_time.split(' ')[1]?.slice(0,5) || '') : ''}
                         </div>
                     </div>
                     <span class="badge" style="background:#1e293b; color:${statusColor}">${statusIcon} ${statusText}</span>
@@ -458,9 +456,12 @@ async function loadMonthly() {
             else                                 { absentDays++;  dayStatus[dateStr] = 'absent'; }
         }
 
+        const rate = totalDays > 0 ? ((presentDays / totalDays) * 100).toFixed(1) : '0';
+
         document.getElementById('stat-present').textContent = presentDays;
         document.getElementById('stat-absent').textContent  = absentDays;
         document.getElementById('stat-total').textContent   = totalDays;
+        document.getElementById('stat-rate').textContent    = rate + '%';
 
         renderCalendar(year, month, daysInMonth, dayStatus);
 
@@ -643,6 +644,78 @@ async function loadHomeworkList() {
             </div>
         `).join('');
     } catch (e) { console.error('載入作業記錄失敗', e); }
+}
+
+// ===== 自助註冊 =====
+
+function showRegister() {
+    [1, 2, 3].forEach(i => {
+        document.getElementById(`step-${i}`).style.display = 'none';
+    });
+    document.getElementById('step-register').style.display = 'block';
+    document.querySelectorAll('.step-dot').forEach(d => d.classList.remove('active'));
+    clearError();
+}
+
+function showLoginMode() {
+    document.getElementById('step-register').style.display = 'none';
+    setStep(1);
+}
+
+async function doRegister() {
+    const name = document.getElementById('reg-name').value.trim();
+    const sid  = document.getElementById('reg-sid').value.trim();
+    const cls  = document.getElementById('reg-class').value.trim();
+    const pw   = document.getElementById('reg-pw').value;
+    const pw2  = document.getElementById('reg-pw2').value;
+    clearError();
+
+    if (!name) { showError('請輸入姓名'); return; }
+    if (!pw || pw.length < 4) { showError('密碼至少 4 個字元'); return; }
+    if (pw !== pw2) { showError('兩次密碼不一致'); return; }
+
+    const btn = document.querySelector('#step-register .btn-primary');
+    btn.disabled = true;
+    btn.textContent = '註冊中...';
+
+    try {
+        const students = await firebaseGet('students');
+        if (students) {
+            const exists = Object.values(students).some(s => s?.name === name);
+            if (exists) {
+                showError('此姓名已有帳號，請直接登入');
+                btn.disabled = false;
+                btn.textContent = '申請註冊';
+                return;
+            }
+        }
+
+        // 產生暫時 UID（WEB_ + 8 位隨機 hex）
+        const randomHex = Array.from(crypto.getRandomValues(new Uint8Array(4)))
+            .map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+        const tempUid = `WEB_${randomHex}`;
+
+        const pwHash = await sha256(pw);
+        await firebasePut(`students/${tempUid}`, {
+            name,
+            student_id: sid,
+            class_name: cls,
+            password: pwHash,
+            created_at: new Date().toISOString(),
+            is_web_registered: true
+        });
+
+        // 自動登入
+        currentStudent = { card_uid: tempUid, name, student_id: sid, class_name: cls };
+        sessionStorage.setItem('student_session', JSON.stringify(currentStudent));
+        enterMainPage();
+        showToast(`✅ 註冊成功！歡迎 ${name}（尚無卡號，請聯繫老師完成綁定）`);
+
+    } catch (e) {
+        showError('註冊失敗：' + e.message);
+        btn.disabled = false;
+        btn.textContent = '申請註冊';
+    }
 }
 
 // ===== 更改密碼 =====
