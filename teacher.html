@@ -349,22 +349,12 @@ table.data-table tr:hover td { background: rgba(255,255,255,.02); }
         <div class="list-panel">
           <div class="card" style="padding:16px;margin-bottom:14px">
             <div id="hw-title-disp" class="hw-title-bar empty">（請選擇日期）</div>
-            <div id="hw-attach-disp" style="font-size:13px;margin-top:6px;color:var(--muted)"></div>
             <details id="hw-edit-details" style="margin-top:12px">
-              <summary style="cursor:pointer;color:var(--accent);font-size:13px;user-select:none">✏️ 老師設定作業名稱與附件</summary>
-              <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
-                <input type="text" id="hw-info-title" placeholder="作業名稱（例：第三章習題）" style="padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;width:100%;outline:none">
-                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-                  <label class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-                    📎 選擇附件
-                    <input type="file" id="hw-attach-file" style="display:none" onchange="hwPreviewFile(this)">
-                  </label>
-                  <span id="hw-attach-name-prev" style="font-size:13px;color:var(--muted)">未選擇</span>
-                </div>
-                <div style="display:flex;gap:10px;align-items:center">
-                  <button class="btn btn-primary btn-sm" onclick="saveHomeworkInfo()">💾 儲存作業資訊</button>
-                  <span id="hw-info-status" style="font-size:13px;color:var(--muted)"></span>
-                </div>
+              <summary style="cursor:pointer;color:var(--accent);font-size:13px;user-select:none">✏️ 設定此日作業名稱</summary>
+              <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
+                <input type="text" id="hw-info-title" placeholder="作業名稱（例：第三章習題）" style="flex:1;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none">
+                <button class="btn btn-primary btn-sm" onclick="saveHomeworkInfo()">💾 儲存</button>
+                <span id="hw-info-status" style="font-size:13px;color:var(--muted)"></span>
               </div>
             </details>
           </div>

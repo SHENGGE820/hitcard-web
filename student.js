@@ -243,13 +243,12 @@ function enterMainPage() {
     // 設定請假日期預設值
     document.getElementById('leave-date').value = today.toISOString().split('T')[0];
 
-    // 設定作業日期預設值
-    document.getElementById('hw-date').value = today.toISOString().split('T')[0];
+    // 初始化作業月曆
+    initHwCal();
 
     loadTodayAttendance();
     loadWeekAttendance();
     loadLeaveList();
-    loadHomeworkList();
     loadMonthly();
 }
 
@@ -554,96 +553,147 @@ async function loadLeaveList() {
 }
 
 // ===== 作業 =====
-// 支援的檔案類型
-const ALLOWED_FILES = /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|jpg|jpeg|png|gif|zip)$/i;
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+let hwCalYear, hwCalMonthNum, hwCalSelected;
+let studentClassDatesSet = new Set();
+
+async function initHwCal() {
+    // 載入上課日
+    try {
+        const sched = await firebaseGet('class_schedule').catch(()=>null);
+        studentClassDatesSet = sched?.class_dates ? new Set(sched.class_dates) : new Set();
+    } catch(e) { studentClassDatesSet = new Set(); }
+    const today = new Date();
+    hwCalYear = today.getFullYear(); hwCalMonthNum = today.getMonth()+1;
+    renderHwCal();
+}
+
+function renderHwCal() {
+    const title = `${hwCalYear}年${hwCalMonthNum}月`;
+    document.getElementById('hw-cal-title').textContent = title;
+    const daysInMonth = new Date(hwCalYear, hwCalMonthNum, 0).getDate();
+    const firstDay = new Date(hwCalYear, hwCalMonthNum-1, 1).getDay();
+    const todayStr = new Date().toISOString().split('T')[0];
+    const weekLabels = ['日','一','二','三','四','五','六'];
+    let html = weekLabels.map(w=>`<div class="hw-cal-header">${w}</div>`).join('');
+    for (let i=0;i<firstDay;i++) html+='<div class="hw-cal-day empty"></div>';
+    for (let d=1;d<=daysInMonth;d++) {
+        const ds = `${hwCalYear}-${String(hwCalMonthNum).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const isSchool = studentClassDatesSet.has(ds);
+        let cls = isSchool ? 'school' : 'disabled';
+        if (ds === hwCalSelected) cls += ' sel';
+        if (ds === todayStr) cls += ' today-dot';
+        const onclick = isSchool ? `onclick="hwCalSelect('${ds}')"` : '';
+        html += `<div class="hw-cal-day ${cls}" ${onclick}>${d}</div>`;
+    }
+    document.getElementById('hw-cal-grid').innerHTML = html;
+}
+
+function hwCalMonth(delta) {
+    hwCalMonthNum += delta;
+    if (hwCalMonthNum < 1) { hwCalMonthNum = 12; hwCalYear--; }
+    if (hwCalMonthNum > 12) { hwCalMonthNum = 1; hwCalYear++; }
+    renderHwCal();
+}
+
+async function hwCalSelect(ds) {
+    hwCalSelected = ds;
+    document.getElementById('hw-date').value = ds;
+    const [y,m,d] = ds.split('-');
+    document.getElementById('hw-date-label').textContent = `${y}年${parseInt(m)}月${parseInt(d)}日`;
+    renderHwCal();
+    // 読取老師設定的作業名稱
+    try {
+        const info = await firebaseGet(`homework_info/${ds}`).catch(()=>null);
+        const titleEl = document.getElementById('hw-date-title');
+        if (info?.title) {
+            titleEl.textContent = '📚 ' + info.title;
+            titleEl.className = 'hw-title-display';
+        } else {
+            titleEl.textContent = '(尚未設定作業名稱)';
+            titleEl.className = 'hw-title-display empty';
+        }
+    } catch(e) {}
+    document.getElementById('hw-file-wrap').style.display = 'block';
+    document.getElementById('hw-submit-btn').style.display = 'block';
+    loadHomeworkList();
+}
 
 async function submitHomework() {
     const fileInput = document.getElementById('hw-file');
-    const dateInput = document.getElementById('hw-date');
+    const hwDate = document.getElementById('hw-date').value;
     const file = fileInput.files[0];
-    const hwDate = dateInput.value;
 
     if (!hwDate) { showToast('請選擇作業日期'); return; }
     if (!file) { showToast('請選擇檔案'); return; }
-    
-    if (!ALLOWED_FILES.test(file.name)) {
-        showToast('❌ 不支持的檔案格式。允許：PDF、Word、Excel、圖片等');
-        return;
-    }
-    
-    if (file.size > MAX_FILE_SIZE) {
-        showToast(`❌ 檔案過大（${(file.size / 1024 / 1024).toFixed(1)}MB > 50MB）`);
-        return;
-    }
+    const MAX = 5 * 1024 * 1024;
+    if (file.size > MAX) { showToast(`檔案不能超過 5MB（目前 ${(file.size/1024/1024).toFixed(1)}MB）`); return; }
 
-    const btn = event.target;
-    btn.disabled = true;
-    btn.textContent = '上傳中...';
+    const btn = document.getElementById('hw-submit-btn');
+    btn.disabled = true; btn.textContent = '處理中...';
 
     try {
-        const bucket = 'hitcard-system.firebasestorage.app';
-        const timestamp = Date.now();
-        const storagePath = `homeworks/${hwDate}/${currentStudent.card_uid}/${timestamp}_${file.name}`;
-        const encodedPath = encodeURIComponent(storagePath);
-        const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}`;
-
-        const uploadRes = await fetch(uploadUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': file.type || 'application/octet-stream' },
-            body: file
+        const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.onerror = () => reject(new Error('讀取檔案失敗'));
+            reader.readAsDataURL(file);
         });
-
-        if (!uploadRes.ok) {
-            const err = await uploadRes.json();
-            throw new Error(err.error?.message || '上傳失敗');
-        }
-
-        const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodedPath}?alt=media`;
-
+        // 存 base64 到 RTDB
+        const b64Path = `homework_b64/${currentStudent.card_uid}/${hwDate}`;
+        await firebasePut(b64Path, dataUrl);
+        // 儲存 metadata
         await firebasePost(`students/${currentStudent.card_uid}/homeworks`, {
             date: hwDate,
             filename: file.name,
             filesize: file.size,
             submitted_at: new Date().toISOString(),
-            downloadUrl: downloadUrl
+            b64Path
         });
-
-        showToast('✅ 作業已上傳');
+        showToast('✅ 作業已繳交');
         fileInput.value = '';
-        dateInput.value = new Date().toISOString().split('T')[0];
         loadHomeworkList();
-    } catch (e) {
-        showToast(`❌ 上傳出錯: ${e.message}`);
+    } catch(e) {
+        showToast(`❌ ${e.message}`);
     } finally {
-        btn.disabled = false;
-        btn.textContent = '上傳作業';
+        btn.disabled = false; btn.textContent = '上傳作業';
     }
 }
 
 async function loadHomeworkList() {
+    const container = document.getElementById('hw-list');
+    const hwDate = document.getElementById('hw-date').value;
     try {
         const data = await firebaseGet(`students/${currentStudent.card_uid}/homeworks`);
-        const container = document.getElementById('hw-list');
-
         if (!data) {
             container.innerHTML = '<div class="empty-state"><div class="icon">📚</div><p>還沒有繳交記錄</p></div>';
             return;
         }
-
-        const hws = Object.values(data).sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
-        container.innerHTML = hws.map(h => `
+        const all = Object.values(data).sort((a,b)=>new Date(b.submitted_at)-new Date(a.submitted_at));
+        const filtered = hwDate ? all.filter(h=>h.date===hwDate) : all;
+        if (!filtered.length) {
+            container.innerHTML = '<div class="empty-state"><div class="icon">📚</div><p>此日尚未繳交</p></div>';
+            return;
+        }
+        container.innerHTML = filtered.map(h => `
             <div class="hw-item">
                 <div class="title">📄 ${h.filename || '作業'}</div>
                 <div class="meta">
-                    作業日期：${h.date || '未指定'} | 
-                    繳交時間：${new Date(h.submitted_at).toLocaleString('zh-TW')} |
-                    檔案大小：${(h.filesize / 1024 / 1024).toFixed(2)}MB
+                    作業日期：${h.date || '未設定'} | 
+                    繳交時間：${new Date(h.submitted_at).toLocaleString('zh-TW')}
                 </div>
-                ${h.downloadUrl ? `<a href="javascript:void(0)" onclick="forceDownload('${h.downloadUrl}', '${(h.filename||'作業').replace(/'/g, '')}')">⬇️ 下載</a>` : ''}
+                ${h.b64Path ? `<a href="javascript:void(0)" onclick="downloadHwB64('${h.b64Path}','${(h.filename||'作業').replace(/'/g,'')}')">⬇️ 下載</a>` : ''}
             </div>
         `).join('');
-    } catch (e) { console.error('載入作業記錄失敗', e); }
+    } catch(e) { console.error('載入作業記錄失敗', e); }
+}
+
+async function downloadHwB64(path, filename) {
+    try {
+        const dataUrl = await firebaseGet(path);
+        if (!dataUrl) { showToast('找不到檔案'); return; }
+        const a = document.createElement('a');
+        a.href = dataUrl; a.download = filename; a.click();
+    } catch(e) { showToast('下載失敗：' + e.message); }
 }
 
 // ===== 自助註冊 =====

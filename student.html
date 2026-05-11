@@ -394,15 +394,34 @@
         .badge.approved { background: #064e3b; color: #6ee7b7; }
 
         /* ===== 作業 ===== */
+        .hw-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+        .hw-cal-header { text-align: center; font-size: 11px; color: #64748b; padding: 4px 0; }
+        .hw-cal-day {
+            border-radius: 7px; padding: 8px 3px; text-align: center; font-size: 13px;
+            border: 1.5px solid transparent; user-select: none;
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+        }
+        .hw-cal-day.school { background: #064e3b; color: #6ee7b7; border-color: #065f46; font-weight: 700; cursor: pointer; }
+        .hw-cal-day.school:hover { border-color: #6366f1; }
+        .hw-cal-day.sel { background: #4f46e5 !important; color: #fff !important; border-color: #6366f1 !important; }
+        .hw-cal-day.today-dot { position: relative; }
+        .hw-cal-day.today-dot::after { content: ''; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; background: #6366f1; border-radius: 50%; }
+        .hw-cal-day.sel.today-dot::after { background: #c7d2fe; }
+        .hw-cal-day.disabled { color: #1e293b; cursor: default; }
+        .hw-cal-day.empty { visibility: hidden; }
+        .hw-months { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+        .hw-months button { background: #f59e0b; color: #222; border: none; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 16px; font-weight: 700; }
+        .hw-months h4 { font-size: 15px; font-weight: 700; flex: 1; text-align: center; }
+        .hw-title-display { font-size: 18px; font-weight: 700; margin-bottom: 6px; color: #f1f5f9; }
+        .hw-title-display.empty { color: #475569; font-size: 14px; font-weight: 400; font-style: italic; }
         .hw-form {
             background: #1e293b;
             border-radius: 14px;
-            padding: 20px;
+            padding: 16px;
             border: 1px solid #334155;
-            margin-bottom: 20px;
+            margin-bottom: 14px;
         }
-
-        .hw-form h3 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+        .hw-form h3 { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
 
         .hw-form input {
             width: 100%;
@@ -668,22 +687,35 @@
 
     <!-- 作業 -->
     <div id="tab-hw" class="tab-content">
-        <div class="hw-form">
-            <h3>繳交作業</h3>
-            <div class="form-group">
-                <label>選擇作業日期：</label>
-                <input type="date" id="hw-date">
+        <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+            <div style="flex:0 0 280px;min-width:0">
+                <div class="hw-form">
+                    <div class="hw-months">
+                        <button onclick="hwCalMonth(-1)">&#8249;</button>
+                        <h4 id="hw-cal-title"></h4>
+                        <button onclick="hwCalMonth(1)">&#8250;</button>
+                    </div>
+                    <div class="hw-cal-grid" id="hw-cal-grid"></div>
+                    <div style="margin-top:10px;font-size:12px;color:#64748b">✅ 綠色＝上課日（可選）　選中則變深藍</div>
+                </div>
             </div>
-            <div class="form-group">
-                <label>選擇檔案：</label>
-                <input type="file" id="hw-file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip">
-                <p class="hint-text" style="font-size:12px;margin:4px 0">允許格式：PDF、Word、Excel、圖片等（最大 50MB）</p>
+            <div style="flex:1;min-width:260px">
+                <div class="hw-form">
+                    <div id="hw-date-title" class="hw-title-display empty">請從左邊選擇上課日期</div>
+                    <div id="hw-date-label" style="font-size:12px;color:#64748b;margin-bottom:14px"></div>
+                    <input type="hidden" id="hw-date">
+                    <div class="form-group" id="hw-file-wrap" style="display:none">
+                        <label>選擇作業檔案：</label>
+                        <input type="file" id="hw-file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip" style="color:#94a3b8;font-size:13px">
+                        <p style="font-size:11px;color:#475569;margin-top:4px">PDF、Word、Excel、圖片等（最大 5MB）</p>
+                    </div>
+                    <button class="btn-primary" id="hw-submit-btn" onclick="submitHomework()" style="display:none">上傳作業</button>
+                </div>
+                <div class="section-title">繳交記錄</div>
+                <div id="hw-list">
+                    <div class="empty-state"><div class="icon">📚</div><p>請先選擇日期</p></div>
+                </div>
             </div>
-            <button class="btn-primary" onclick="submitHomework()">上傳作業</button>
-        </div>
-        <div class="section-title">繳交記錄</div>
-        <div id="hw-list">
-            <div class="loading-center"><span class="spinner"></span>載入中...</div>
         </div>
     </div>
 

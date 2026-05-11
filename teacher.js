@@ -749,23 +749,7 @@ async function loadHomeworkInfo(date) {
             titleEl.className = 'hw-title-bar empty';
             titleInput.value = '';
         }
-        if (info && info.attachment_name) {
-            if (info.attachment_url === '__RTDB__') {
-                attachEl.innerHTML = `📎 附件：<a href="javascript:void(0)" onclick="downloadRtdbAttachment('${date}','${info.attachment_name.replace(/'/g,"\\'")}')"
-                    style="color:var(--accent)">${info.attachment_name}</a>`;
-            } else if (info.attachment_url) {
-                attachEl.innerHTML = `📎 附件：<a href="${info.attachment_url}" target="_blank" style="color:var(--accent)">${info.attachment_name}</a>`;
-            }
-        } else {
-            attachEl.textContent = '';
-        }
-        document.getElementById('hw-attach-name-prev').textContent = '未選擇';
-        document.getElementById('hw-attach-file').value = '';
     } catch(e) { console.error('載入作業資訊失敗', e); }
-}
-
-function hwPreviewFile(input) {
-    document.getElementById('hw-attach-name-prev').textContent = input.files[0] ? input.files[0].name : '未選擇';
 }
 
 async function saveHomeworkInfo() {
@@ -777,65 +761,17 @@ async function saveHomeworkInfo() {
     const btn = document.querySelector('#hw-edit-details .btn-primary');
     btn.disabled = true; statusEl.textContent = '儲存中...'; statusEl.style.color = 'var(--muted)';
     try {
-        const fileInput = document.getElementById('hw-attach-file');
-        const file = fileInput.files[0];
-        let attachment_url = hwInfoData?.attachment_url || null;
-        let attachment_name = hwInfoData?.attachment_name || null;
-        if (file) {
-            statusEl.textContent = '上傳附件中...';
-            const res = await uploadTeacherAttachment(file, date);
-            attachment_url = res.url; attachment_name = res.name;
-        }
         const info = { title, updated_at: new Date().toISOString() };
-        if (attachment_url) { info.attachment_url = attachment_url; info.attachment_name = attachment_name; }
         await fbPut(`homework_info/${date}`, info);
         hwInfoData = info;
         document.getElementById('hw-title-disp').textContent = title;
         document.getElementById('hw-title-disp').className = 'hw-title-bar';
-        if (attachment_name) {
-            if (attachment_url === '__RTDB__') {
-                document.getElementById('hw-attach-disp').innerHTML = `📎 附件：<a href="javascript:void(0)" onclick="downloadRtdbAttachment('${date}','${attachment_name.replace(/'/g,"\\'")}')" style="color:var(--accent)">${attachment_name}</a>`;
-            } else if (attachment_url) {
-                document.getElementById('hw-attach-disp').innerHTML = `📎 附件：<a href="${attachment_url}" target="_blank" style="color:var(--accent)">${attachment_name}</a>`;
-            }
-        }
         statusEl.textContent = '✅ 已儲存'; statusEl.style.color = 'var(--green)';
-        fileInput.value = ''; document.getElementById('hw-attach-name-prev').textContent = '未選擇';
         showToast('✅ 作業資訊已更新');
     } catch(e) {
         statusEl.textContent = '❌ ' + e.message; statusEl.style.color = 'var(--red)';
     }
     btn.disabled = false;
-}
-
-async function uploadTeacherAttachment(file, date) {
-    const MAX = 5 * 1024 * 1024; // 5MB
-    if (file.size > MAX) throw new Error(`檔案不能超過 5MB（目前 ${(file.size/1024/1024).toFixed(1)}MB）`);
-    // 用 RTDB 儲存 base64，不依賴 Firebase Storage
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const dataUrl = e.target.result;
-                // 分開存：metadata vs 大型 base64 data
-                await fbPut(`homework_attachments_b64/${date}`, dataUrl);
-                resolve({ url: '__RTDB__', name: file.name });
-            } catch(err) { reject(new Error('儲存失敗：' + err.message)); }
-        };
-        reader.onerror = () => reject(new Error('讀取檔案失敗'));
-        reader.readAsDataURL(file);
-    });
-}
-
-async function downloadRtdbAttachment(date, filename) {
-    try {
-        const dataUrl = await fbGet(`homework_attachments_b64/${date}`);
-        if (!dataUrl) { showToast('找不到附件'); return; }
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = filename;
-        a.click();
-    } catch(e) { showToast('下載失敗：' + e.message); }
 }
 
 // ===== INIT =====
