@@ -805,8 +805,9 @@ async function uploadTeacherAttachment(file, date) {
     const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
     const path = `homework_attachments/${date}/${safeName}`;
     const encodedPath = encodeURIComponent(path);
+    const apiKey = FIREBASE_CONFIG.apiKey;
     const r = await fetch(
-        `https://firebasestorage.googleapis.com/v0/b/${storageBucket}/o?name=${encodedPath}&uploadType=media`,
+        `https://firebasestorage.googleapis.com/v0/b/${storageBucket}/o?name=${encodedPath}&uploadType=media&key=${apiKey}`,
         { method: 'POST', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file }
     );
     if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error?.message || `上傳失敗 (${r.status})`); }

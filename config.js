@@ -1,9 +1,9 @@
 // Firebase 配置 - 用於 Realtime Database 和 Cloud Storage
 const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyDummy",  // 網頁可用的公開 API Key（Cloud Storage 需要）
+    apiKey: "AIzaSyBBSLuQCi552wovHRo3Sbf22Fn4X_KIb6A",
     authDomain: "hitcard-system.firebaseapp.com",
     projectId: "hitcard-system",
-    storageBucket: "hitcard-system.appspot.com",
+    storageBucket: "hitcard-system.firebasestorage.app",
     databaseURL: 'https://hitcard-system-default-rtdb.asia-southeast1.firebasedatabase.app',
 };
 
