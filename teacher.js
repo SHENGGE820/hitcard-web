@@ -494,6 +494,7 @@ function renderLeaveT() {
 // ===== 作業管理 =====
 let allHomeworks = [];
 async function loadTeacherHomeworkT() {
+    renderHwDatePickerCal(); // 同步最新上課日色彩
     const dateInput = hwDpSelected;
     
     if (!dateInput) {
@@ -719,12 +720,101 @@ function hwDatePickerSelect(ds) {
     const [y,m,d] = ds.split('-');
     document.getElementById('hw-dp-selected').textContent = `${y}年${parseInt(m)}月${parseInt(d)}日`;
     renderHwDatePickerCal();
+    loadHomeworkInfo(ds);
     loadTeacherHomeworkT();
 }
 function hwDatePickerSetToday() {
     const today = new Date();
     hwDpYear = today.getFullYear(); hwDpMonth = today.getMonth()+1;
     hwDatePickerSelect(today.toISOString().split('T')[0]);
+}
+
+// ===== 作業資訊（老師設定）=====
+let hwInfoData = null;
+
+async function loadHomeworkInfo(date) {
+    if (!date) return;
+    const titleEl = document.getElementById('hw-title-disp');
+    const attachEl = document.getElementById('hw-attach-disp');
+    const titleInput = document.getElementById('hw-info-title');
+    try {
+        const info = await fbGet(`homework_info/${date}`).catch(()=>null);
+        hwInfoData = info || null;
+        if (info && info.title) {
+            titleEl.textContent = info.title;
+            titleEl.className = 'hw-title-bar';
+            titleInput.value = info.title;
+        } else {
+            titleEl.textContent = '（尚未設定作業名稱）';
+            titleEl.className = 'hw-title-bar empty';
+            titleInput.value = '';
+        }
+        if (info && info.attachment_name && info.attachment_url) {
+            attachEl.innerHTML = `📎 附件：<a href="${info.attachment_url}" target="_blank" style="color:var(--accent)">${info.attachment_name}</a>`;
+        } else {
+            attachEl.textContent = '';
+        }
+        document.getElementById('hw-attach-name-prev').textContent = '未選擇';
+        document.getElementById('hw-attach-file').value = '';
+    } catch(e) { console.error('載入作業資訊失敗', e); }
+}
+
+function hwPreviewFile(input) {
+    document.getElementById('hw-attach-name-prev').textContent = input.files[0] ? input.files[0].name : '未選擇';
+}
+
+async function saveHomeworkInfo() {
+    const date = hwDpSelected;
+    if (!date) { showToast('請先選擇日期'); return; }
+    const title = document.getElementById('hw-info-title').value.trim();
+    if (!title) { showToast('請輸入作業名稱'); return; }
+    const statusEl = document.getElementById('hw-info-status');
+    const btn = document.querySelector('#hw-edit-details .btn-primary');
+    btn.disabled = true; statusEl.textContent = '儲存中...'; statusEl.style.color = 'var(--muted)';
+    try {
+        const fileInput = document.getElementById('hw-attach-file');
+        const file = fileInput.files[0];
+        let attachment_url = hwInfoData?.attachment_url || null;
+        let attachment_name = hwInfoData?.attachment_name || null;
+        if (file) {
+            statusEl.textContent = '上傳附件中...';
+            const res = await uploadTeacherAttachment(file, date);
+            attachment_url = res.url; attachment_name = res.name;
+        }
+        const info = { title, updated_at: new Date().toISOString() };
+        if (attachment_url) { info.attachment_url = attachment_url; info.attachment_name = attachment_name; }
+        await fbPut(`homework_info/${date}`, info);
+        hwInfoData = info;
+        document.getElementById('hw-title-disp').textContent = title;
+        document.getElementById('hw-title-disp').className = 'hw-title-bar';
+        if (attachment_name) {
+            document.getElementById('hw-attach-disp').innerHTML = `📎 附件：<a href="${attachment_url}" target="_blank" style="color:var(--accent)">${attachment_name}</a>`;
+        }
+        statusEl.textContent = '✅ 已儲存'; statusEl.style.color = 'var(--green)';
+        fileInput.value = ''; document.getElementById('hw-attach-name-prev').textContent = '未選擇';
+        showToast('✅ 作業資訊已更新');
+    } catch(e) {
+        statusEl.textContent = '❌ ' + e.message; statusEl.style.color = 'var(--red)';
+    }
+    btn.disabled = false;
+}
+
+async function uploadTeacherAttachment(file, date) {
+    const storageBucket = FIREBASE_CONFIG.storageBucket;
+    if (!storageBucket) throw new Error('未設定 Firebase storageBucket');
+    const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const path = `homework_attachments/${date}/${safeName}`;
+    const encodedPath = encodeURIComponent(path);
+    const r = await fetch(
+        `https://firebasestorage.googleapis.com/v0/b/${storageBucket}/o?name=${encodedPath}&uploadType=media`,
+        { method: 'POST', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file }
+    );
+    if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error?.message || `上傳失敗 (${r.status})`); }
+    const data = await r.json();
+    return {
+        url: `https://firebasestorage.googleapis.com/v0/b/${storageBucket}/o/${encodedPath}?alt=media&token=${data.downloadTokens}`,
+        name: file.name
+    };
 }
 
 // ===== INIT =====
@@ -748,6 +838,7 @@ function hwDatePickerSetToday() {
     renderDatePickerCal();
     renderLvDatePickerCal();
     renderHwDatePickerCal();
+    loadHomeworkInfo(hwDpSelected);
     // Bypass login: always enter app so teachers don't need to input password
     enterApp();
 })();
