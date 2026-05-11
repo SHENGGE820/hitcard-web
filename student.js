@@ -618,6 +618,10 @@ async function hwCalSelect(ds) {
     loadHomeworkList();
 }
 
+// 支援的檔案類型
+const ALLOWED_FILES = /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|jpg|jpeg|png|gif|zip)$/i;
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
 async function submitHomework() {
     const fileInput = document.getElementById('hw-file');
     const hwDate = document.getElementById('hw-date').value;
@@ -625,37 +629,57 @@ async function submitHomework() {
 
     if (!hwDate) { showToast('請選擇作業日期'); return; }
     if (!file) { showToast('請選擇檔案'); return; }
-    const MAX = 5 * 1024 * 1024;
-    if (file.size > MAX) { showToast(`檔案不能超過 5MB（目前 ${(file.size/1024/1024).toFixed(1)}MB）`); return; }
+
+    if (!ALLOWED_FILES.test(file.name)) {
+        showToast('❌ 不支援的檔案格式。允許：PDF、Word、Excel、圖片等');
+        return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+        showToast(`❌ 檔案過大（${(file.size / 1024 / 1024).toFixed(1)}MB > 50MB）`);
+        return;
+    }
 
     const btn = document.getElementById('hw-submit-btn');
-    btn.disabled = true; btn.textContent = '處理中...';
+    btn.disabled = true;
+    btn.textContent = '上傳中...';
 
     try {
-        const dataUrl = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = e => resolve(e.target.result);
-            reader.onerror = () => reject(new Error('讀取檔案失敗'));
-            reader.readAsDataURL(file);
+        const bucket = 'hitcard-system.firebasestorage.app';
+        const timestamp = Date.now();
+        const storagePath = `homeworks/${hwDate}/${currentStudent.card_uid}/${timestamp}_${file.name}`;
+        const encodedPath = encodeURIComponent(storagePath);
+        const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}`;
+
+        const uploadRes = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': file.type || 'application/octet-stream' },
+            body: file
         });
-        // 存 base64 到 RTDB
-        const b64Path = `homework_b64/${currentStudent.card_uid}/${hwDate}`;
-        await firebasePut(b64Path, dataUrl);
-        // 儲存 metadata
+
+        if (!uploadRes.ok) {
+            const err = await uploadRes.json();
+            throw new Error(err.error?.message || '上傳失敗');
+        }
+
+        const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodedPath}?alt=media`;
+
         await firebasePost(`students/${currentStudent.card_uid}/homeworks`, {
             date: hwDate,
             filename: file.name,
             filesize: file.size,
             submitted_at: new Date().toISOString(),
-            b64Path
+            downloadUrl
         });
-        showToast('✅ 作業已繳交');
+
+        showToast('✅ 作業已上傳');
         fileInput.value = '';
         loadHomeworkList();
-    } catch(e) {
-        showToast(`❌ ${e.message}`);
+    } catch (e) {
+        showToast(`❌ 上傳出錯: ${e.message}`);
     } finally {
-        btn.disabled = false; btn.textContent = '上傳作業';
+        btn.disabled = false;
+        btn.textContent = '上傳作業';
     }
 }
 
@@ -668,8 +692,8 @@ async function loadHomeworkList() {
             container.innerHTML = '<div class="empty-state"><div class="icon">📚</div><p>還沒有繳交記錄</p></div>';
             return;
         }
-        const all = Object.values(data).sort((a,b)=>new Date(b.submitted_at)-new Date(a.submitted_at));
-        const filtered = hwDate ? all.filter(h=>h.date===hwDate) : all;
+        const all = Object.values(data).sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
+        const filtered = hwDate ? all.filter(h => h.date === hwDate) : all;
         if (!filtered.length) {
             container.innerHTML = '<div class="empty-state"><div class="icon">📚</div><p>此日尚未繳交</p></div>';
             return;
@@ -678,22 +702,27 @@ async function loadHomeworkList() {
             <div class="hw-item">
                 <div class="title">📄 ${h.filename || '作業'}</div>
                 <div class="meta">
-                    作業日期：${h.date || '未設定'} | 
-                    繳交時間：${new Date(h.submitted_at).toLocaleString('zh-TW')}
+                    作業日期：${h.date || '未指定'} | 
+                    繳交時間：${new Date(h.submitted_at).toLocaleString('zh-TW')} |
+                    檔案大小：${(h.filesize / 1024 / 1024).toFixed(2)}MB
                 </div>
-                ${h.b64Path ? `<a href="javascript:void(0)" onclick="downloadHwB64('${h.b64Path}','${(h.filename||'作業').replace(/'/g,'')}')">⬇️ 下載</a>` : ''}
+                ${h.downloadUrl ? `<a href="javascript:void(0)" onclick="forceDownload('${h.downloadUrl}', '${(h.filename||'作業').replace(/'/g, '')}')">⬇️ 下載</a>` : ''}
             </div>
         `).join('');
-    } catch(e) { console.error('載入作業記錄失敗', e); }
+    } catch (e) { console.error('載入作業記錄失敗', e); }
 }
 
-async function downloadHwB64(path, filename) {
+async function forceDownload(url, filename) {
     try {
-        const dataUrl = await firebaseGet(path);
-        if (!dataUrl) { showToast('找不到檔案'); return; }
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('下載失敗');
+        const blob = await res.blob();
         const a = document.createElement('a');
-        a.href = dataUrl; a.download = filename; a.click();
-    } catch(e) { showToast('下載失敗：' + e.message); }
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    } catch (e) { showToast('下載失敗：' + e.message); }
 }
 
 // ===== 自助註冊 =====
