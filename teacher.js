@@ -583,13 +583,63 @@ async function loadTeacherHomeworkT() {
     }
 }
 
-// ===== INIT =====
-(function init() {
-    // 設定預設日期（無論是否已登入都要設）
-    document.getElementById('t-date').valueAsDate = new Date();
-    document.getElementById('m-month').value = new Date().toISOString().slice(0,7);
-    document.getElementById('pin-input').addEventListener('keypress', e=>{ if(e.key==='Enter') doLogin(); });
+// ===== 日期選擇器 =====
+let dpYear, dpMonth, dpSelected;
 
+function renderDatePickerCal() {
+    const title = `${dpYear}年${dpMonth}月`;
+    document.getElementById('date-picker-title').textContent = title;
+    const daysInMonth = new Date(dpYear, dpMonth, 0).getDate();
+    const firstDay = new Date(dpYear, dpMonth-1, 1).getDay();
+    const todayStr = new Date().toISOString().split('T')[0];
+    const weekLabels = ['日','一','二','三','四','五','六'];
+    let html = weekLabels.map(w=>`<div class="cal-header">${w}</div>`).join('');
+    for (let i=0;i<firstDay;i++) html+='<div class="cal-day empty"></div>';
+    for (let d=1;d<=daysInMonth;d++) {
+        const ds = `${dpYear}-${String(dpMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const dow = new Date(ds+'T00:00:00').getDay();
+        let cls;
+        if (classDatesSet.has(ds)) cls = 'school';
+        else if (dow===0||dow===6) cls = 'weekend';
+        else cls = 'normal';
+        if (ds === dpSelected) cls += ' dp-sel';
+        if (ds === todayStr) cls += ' dp-today';
+        html += `<div class="cal-day ${cls}" onclick="datePickerSelect('${ds}')">${d}</div>`;
+    }
+    document.getElementById('date-picker-cal').innerHTML = html;
+}
+function datePickerMonth(delta) {
+    dpMonth += delta;
+    if (dpMonth < 1) { dpMonth = 12; dpYear--; }
+    if (dpMonth > 12) { dpMonth = 1; dpYear++; }
+    renderDatePickerCal();
+}
+function datePickerSelect(ds) {
+    dpSelected = ds;
+    document.getElementById('t-date').value = ds;
+    const [y,m,d] = ds.split('-');
+    document.getElementById('date-picker-selected').textContent = `${y}年${parseInt(m)}月${parseInt(d)}日`;
+    renderDatePickerCal();
+    loadTodayT();
+}
+function datePickerSetToday() {
+    const today = new Date();
+    dpYear = today.getFullYear(); dpMonth = today.getMonth()+1;
+    datePickerSelect(today.toISOString().split('T')[0]);
+}
+
+// ===== INIT =====
+(async function init() {
+    const today = new Date();
+    dpYear = today.getFullYear(); dpMonth = today.getMonth()+1;
+    dpSelected = today.toISOString().split('T')[0];
+    document.getElementById('t-date').value = dpSelected;
+    document.getElementById('date-picker-selected').textContent =
+        today.toLocaleDateString('zh-TW', { year:'numeric', month:'long', day:'numeric' });
+    document.getElementById('m-month').value = today.toISOString().slice(0,7);
+    document.getElementById('pin-input').addEventListener('keypress', e=>{ if(e.key==='Enter') doLogin(); });
+    await loadClassDates();
+    renderDatePickerCal();
     // Bypass login: always enter app so teachers don't need to input password
     enterApp();
 })();
