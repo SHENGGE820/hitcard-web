@@ -549,31 +549,32 @@ async function loadTeacherHomeworkT() {
         let html = '';
         for (const stu of students) {
             const hws = homeworkMap[stu.card_uid] || [];
-            const status = hws.length > 0 ? '✅ 已交' : '❌ 未交';
-            const statusBadge = hws.length > 0 
+            const statusBadge = hws.length > 0
                 ? '<span class="badge badge-green">✅ 已交</span>'
                 : '<span class="badge badge-red">❌ 未交</span>';
-            
+
             if (hws.length > 0) {
-                // 有繳交作業，按行顯示
-                for (const hw of hws) {
-                    const filename = hw.filename || '(無名檔案)';
-                    const submitTime = hw.submitted_at ? new Date(hw.submitted_at).toLocaleString('zh-TW', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '--';
-                    const dlBtn = hw.downloadUrl 
-                        ? `<a href="javascript:void(0)" onclick="forceDownload('${hw.downloadUrl}', '${filename.replace(/'/g, '')}')" class="btn btn-sm btn-blue">⬇️ 下載</a>`
-                        : '';
-                    html += `<tr>
-                        <td>${stu.name}</td>
-                        <td>${stu.class_name}</td>
-                        <td>${stu.card_uid}</td>
-                        <td>${statusBadge}</td>
-                        <td>${filename}</td>
-                        <td>${submitTime}</td>
-                        <td>${dlBtn}</td>
-                    </tr>`;
-                }
+                // 合併成一行，取最新那筆；若多筆則標示數量
+                const sorted = [...hws].sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
+                const latest = sorted[0];
+                const rawName = latest.filename || '(無名檔案)';
+                const filename = hws.length > 1 ? `${rawName}（共${hws.length}個）` : rawName;
+                const submitTime = latest.submitted_at
+                    ? new Date(latest.submitted_at).toLocaleString('zh-TW', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+                    : '--';
+                const dlBtn = latest.downloadUrl
+                    ? `<a href="javascript:void(0)" onclick="forceDownload('${latest.downloadUrl}', '${rawName.replace(/'/g, '')}')" class="btn btn-sm btn-blue">⬇️ 下載</a>`
+                    : '';
+                html += `<tr>
+                    <td>${stu.name}</td>
+                    <td>${stu.class_name}</td>
+                    <td>${stu.card_uid}</td>
+                    <td>${statusBadge}</td>
+                    <td>${filename}</td>
+                    <td>${submitTime}</td>
+                    <td>${dlBtn}</td>
+                </tr>`;
             } else {
-                // 未繳交
                 html += `<tr>
                     <td>${stu.name}</td>
                     <td>${stu.class_name}</td>

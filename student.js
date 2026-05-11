@@ -555,13 +555,20 @@ async function loadLeaveList() {
 // ===== 作業 =====
 let hwCalYear, hwCalMonthNum, hwCalSelected;
 let studentClassDatesSet = new Set();
+let hwSubmittedDatesSet = new Set();
 
 async function initHwCal() {
-    // 載入上課日
     try {
-        const sched = await firebaseGet('class_schedule').catch(()=>null);
+        const [sched, homeworksData] = await Promise.all([
+            firebaseGet('class_schedule').catch(()=>null),
+            firebaseGet(`students/${currentStudent.card_uid}/homeworks`).catch(()=>null)
+        ]);
         studentClassDatesSet = sched?.class_dates ? new Set(sched.class_dates) : new Set();
-    } catch(e) { studentClassDatesSet = new Set(); }
+        hwSubmittedDatesSet = new Set();
+        if (homeworksData) {
+            Object.values(homeworksData).forEach(hw => { if (hw?.date) hwSubmittedDatesSet.add(hw.date); });
+        }
+    } catch(e) { studentClassDatesSet = new Set(); hwSubmittedDatesSet = new Set(); }
     const today = new Date();
     hwCalYear = today.getFullYear(); hwCalMonthNum = today.getMonth()+1;
     renderHwCal();
@@ -579,11 +586,20 @@ function renderHwCal() {
     for (let d=1;d<=daysInMonth;d++) {
         const ds = `${hwCalYear}-${String(hwCalMonthNum).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
         const isSchool = studentClassDatesSet.has(ds);
-        let cls = isSchool ? 'school' : 'disabled';
+        let cls, statusTag = '';
+        if (isSchool) {
+            const isSubmitted = hwSubmittedDatesSet.has(ds);
+            cls = isSubmitted ? 'school submitted' : 'school not-submitted';
+            statusTag = isSubmitted
+                ? '<span class="hw-status-tag green">已交</span>'
+                : '<span class="hw-status-tag red">未交</span>';
+        } else {
+            cls = 'disabled';
+        }
         if (ds === hwCalSelected) cls += ' sel';
         if (ds === todayStr) cls += ' today-dot';
         const onclick = isSchool ? `onclick="hwCalSelect('${ds}')"` : '';
-        html += `<div class="hw-cal-day ${cls}" ${onclick}>${d}</div>`;
+        html += `<div class="hw-cal-day ${cls}" ${onclick}>${d}${statusTag}</div>`;
     }
     document.getElementById('hw-cal-grid').innerHTML = html;
 }
@@ -674,6 +690,8 @@ async function submitHomework() {
 
         showToast('✅ 作業已上傳');
         fileInput.value = '';
+        hwSubmittedDatesSet.add(hwDate);
+        renderHwCal();
         loadHomeworkList();
     } catch (e) {
         showToast(`❌ 上傳出錯: ${e.message}`);

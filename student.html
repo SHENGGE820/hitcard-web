@@ -401,9 +401,15 @@
             border: 1.5px solid transparent; user-select: none;
             display: flex; flex-direction: column; align-items: center; gap: 2px;
         }
-        .hw-cal-day.school { background: #064e3b; color: #6ee7b7; border-color: #065f46; font-weight: 700; cursor: pointer; }
-        .hw-cal-day.school:hover { border-color: #6366f1; }
+        .hw-cal-day.school { font-weight: 700; cursor: pointer; }
+        .hw-cal-day.submitted { background: #14532d; color: #86efac; border-color: #166534; }
+        .hw-cal-day.submitted:hover { border-color: #22c55e; }
+        .hw-cal-day.not-submitted { background: #7f1d1d; color: #fca5a5; border-color: #991b1b; }
+        .hw-cal-day.not-submitted:hover { border-color: #ef4444; }
         .hw-cal-day.sel { background: #4f46e5 !important; color: #fff !important; border-color: #6366f1 !important; }
+        .hw-status-tag { font-size: 9px; line-height: 1; padding: 1px 4px; border-radius: 3px; font-weight: 700; margin-top: 1px; }
+        .hw-status-tag.green { background: #166534; color: #bbf7d0; }
+        .hw-status-tag.red { background: #991b1b; color: #fecaca; }
         .hw-cal-day.today-dot { position: relative; }
         .hw-cal-day.today-dot::after { content: ''; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; background: #6366f1; border-radius: 50%; }
         .hw-cal-day.sel.today-dot::after { background: #c7d2fe; }
