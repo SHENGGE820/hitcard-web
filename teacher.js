@@ -441,6 +441,7 @@ async function saveSchedule() {
 
 // ===== 請假管理 =====
 let allLeaves = [];
+let lvDateCounts = {}; // { 'YYYY-MM-DD': count }
 async function loadTeacherLeaveT() {
     document.getElementById('lv-tbody').innerHTML = '<tr><td colspan="5" class="loading-msg">載入中...</td></tr>';
     const now = new Date();
@@ -462,6 +463,9 @@ async function loadTeacherLeaveT() {
             }
         }
         allLeaves.sort((a,b)=>b.date.localeCompare(a.date));
+        // 計算每天請假人數（全不篩選，供月曆標注用）
+        lvDateCounts = {};
+        allLeaves.forEach(l => { if (l.date) lvDateCounts[l.date] = (lvDateCounts[l.date]||0)+1; });
         const sel = document.getElementById('lv-stu');
         const cur = sel.value;
         sel.innerHTML = '<option value="">全部</option>';
@@ -469,6 +473,7 @@ async function loadTeacherLeaveT() {
             sel.innerHTML += `<option value="${n}">${n}</option>`;
         });
         sel.value = cur;
+        renderLvDatePickerCal(); // 資料載入後重新畫月曆（帶請假人數標注）
         renderLeaveT();
     } catch(e) {
         document.getElementById('lv-tbody').innerHTML = `<tr><td colspan="5" style="color:var(--red);text-align:center;padding:24px">${e.message}</td></tr>`;
@@ -652,7 +657,9 @@ function renderLvDatePickerCal() {
         else cls = 'normal';
         if (ds === lvDpSelected) cls += ' dp-sel';
         if (ds === todayStr) cls += ' dp-today';
-        html += `<div class="cal-day ${cls}" onclick="lvDatePickerSelect('${ds}')">${d}</div>`;
+        const leaveCount = lvDateCounts[ds] || 0;
+        const countHtml = leaveCount > 0 ? `<span class="cal-day-count">${leaveCount}人請假</span>` : '';
+        html += `<div class="cal-day ${cls}" onclick="lvDatePickerSelect('${ds}')">${d}${countHtml}</div>`;
     }
     document.getElementById('lv-dp-cal').innerHTML = html;
 }

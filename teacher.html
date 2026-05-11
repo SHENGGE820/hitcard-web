@@ -132,7 +132,11 @@ table.data-table tr:hover td { background: rgba(255,255,255,.02); }
 .cal-day {
   border-radius: 8px; padding: 10px 4px; text-align: center; cursor: pointer;
   font-size: 14px; transition: all .15s; border: 1.5px solid transparent; user-select: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
 }
+.cal-day-count { font-size: 10px; color: #fbbf24; line-height: 1; font-weight: 600; }
+.cal-day.school .cal-day-count { color: #a7f3d0; }
+.cal-day.dp-sel .cal-day-count { color: #c7d2fe; }
 .cal-day.empty { visibility: hidden; }
 .cal-day.past  { color: var(--border); cursor: default; }
 .cal-day.school { background: #064e3b; color: #6ee7b7; border-color: #065f46; font-weight: 700; }
@@ -282,18 +286,19 @@ table.data-table tr:hover td { background: rgba(255,255,255,.02); }
 
     <!-- ===== 請假管理 ===== -->
     <div id="tab-leave" class="tab-content">
-      <div class="card" style="padding:16px;margin-bottom:16px;display:inline-block;width:auto">
-        <div class="schedule-months" style="margin-bottom:10px">
+      <div class="card">
+        <div class="section-title">📋 請假管理</div>
+        <div class="schedule-months">
           <button onclick="lvDatePickerMonth(-1)">&#8249;</button>
           <h3 id="lv-dp-title" style="min-width:130px;text-align:center"></h3>
           <button onclick="lvDatePickerMonth(1)">&#8250;</button>
         </div>
-        <div class="cal-grid" id="lv-dp-cal" style="max-width:300px"></div>
-        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <span style="color:var(--muted);font-size:13px">已選：<strong id="lv-dp-selected" style="color:var(--text)">-</strong></span>
-          <button class="btn btn-green btn-sm" onclick="lvDatePickerSetToday()">今天</button>
+        <div class="cal-grid" id="lv-dp-cal"></div>
+        <div class="schedule-summary" style="margin-top:14px">
+          <span>✅ 已選日期：<strong id="lv-dp-selected" style="color:var(--text)">-</strong></span>
           <select id="lv-stu" onchange="renderLeaveT()" style="padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px"><option value="">全部學生</option></select>
-          <button class="btn btn-green btn-sm" onclick="loadTeacherLeaveT()">🔄</button>
+          <button class="btn btn-green btn-sm" onclick="lvDatePickerSetToday()">今天</button>
+          <button class="btn btn-green btn-sm" onclick="loadTeacherLeaveT()">🔄 重新整理</button>
         </div>
       </div>
       <div id="lv-summary" style="color:var(--muted);font-size:13px;margin-bottom:12px"></div>
@@ -307,18 +312,19 @@ table.data-table tr:hover td { background: rgba(255,255,255,.02); }
 
     <!-- ===== 作業管理 ===== -->
     <div id="tab-homework" class="tab-content">
-      <div class="card" style="padding:16px;margin-bottom:16px;display:inline-block;width:auto">
-        <div class="schedule-months" style="margin-bottom:10px">
+      <div class="card">
+        <div class="section-title">📚 作業管理</div>
+        <div class="schedule-months">
           <button onclick="hwDatePickerMonth(-1)">&#8249;</button>
           <h3 id="hw-dp-title" style="min-width:130px;text-align:center"></h3>
           <button onclick="hwDatePickerMonth(1)">&#8250;</button>
         </div>
-        <div class="cal-grid" id="hw-dp-cal" style="max-width:300px"></div>
-        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input type="hidden" id="hw-date-filter">
-          <span style="color:var(--muted);font-size:13px">已選：<strong id="hw-dp-selected" style="color:var(--text)">-</strong></span>
+        <input type="hidden" id="hw-date-filter">
+        <div class="cal-grid" id="hw-dp-cal"></div>
+        <div class="schedule-summary" style="margin-top:14px">
+          <span>✅ 已選日期：<strong id="hw-dp-selected" style="color:var(--text)">-</strong></span>
           <button class="btn btn-green btn-sm" onclick="hwDatePickerSetToday()">今天</button>
-          <button class="btn btn-green btn-sm" onclick="loadTeacherHomeworkT()">🔄</button>
+          <button class="btn btn-green btn-sm" onclick="loadTeacherHomeworkT()">🔄 重新整理</button>
         </div>
       </div>
       <div id="hw-summary" style="color:var(--muted);font-size:13px;margin-bottom:12px"></div>
