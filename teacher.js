@@ -444,7 +444,11 @@ let allLeaves = [];
 async function loadTeacherLeaveT() {
     document.getElementById('lv-tbody').innerHTML = '<tr><td colspan="5" class="loading-msg">載入中...</td></tr>';
     const now = new Date();
-    document.getElementById('lv-month').value = now.toISOString().slice(0,7);
+    if (!lvDpYear) {
+        lvDpYear = now.getFullYear(); lvDpMonth = now.getMonth()+1;
+        lvDpSelected = now.toISOString().split('T')[0];
+    }
+    renderLvDatePickerCal();
     try {
         const data = await fbGet('students');
         allLeaves = [];
@@ -472,10 +476,9 @@ async function loadTeacherLeaveT() {
 }
 function renderLeaveT() {
     const fs = document.getElementById('lv-stu').value;
-    const fm = document.getElementById('lv-month').value;
     let list = allLeaves;
     if (fs) list = list.filter(l=>l.name===fs);
-    if (fm) list = list.filter(l=>l.date.startsWith(fm));
+    if (lvDpSelected) list = list.filter(l=>l.date===lvDpSelected);
     document.getElementById('lv-summary').textContent = `共 ${list.length} 筆`;
     document.getElementById('lv-tbody').innerHTML = list.length ? list.map(l=>{
         const dt = l.submitted_at ? new Date(l.submitted_at).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '--';
@@ -486,7 +489,7 @@ function renderLeaveT() {
 // ===== 作業管理 =====
 let allHomeworks = [];
 async function loadTeacherHomeworkT() {
-    const dateInput = document.getElementById('hw-date-filter').value;
+    const dateInput = hwDpSelected;
     
     if (!dateInput) {
         document.getElementById('hw-tbody').innerHTML = '<tr><td colspan="7" class="empty-msg">請選擇日期</td></tr>';
@@ -628,18 +631,116 @@ function datePickerSetToday() {
     datePickerSelect(today.toISOString().split('T')[0]);
 }
 
+// ===== 請假 日期選擇器 =====
+let lvDpYear, lvDpMonth, lvDpSelected;
+
+function renderLvDatePickerCal() {
+    const title = `${lvDpYear}年${lvDpMonth}月`;
+    document.getElementById('lv-dp-title').textContent = title;
+    const daysInMonth = new Date(lvDpYear, lvDpMonth, 0).getDate();
+    const firstDay = new Date(lvDpYear, lvDpMonth-1, 1).getDay();
+    const todayStr = new Date().toISOString().split('T')[0];
+    const weekLabels = ['日','一','二','三','四','五','六'];
+    let html = weekLabels.map(w=>`<div class="cal-header">${w}</div>`).join('');
+    for (let i=0;i<firstDay;i++) html+='<div class="cal-day empty"></div>';
+    for (let d=1;d<=daysInMonth;d++) {
+        const ds = `${lvDpYear}-${String(lvDpMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const dow = new Date(ds+'T00:00:00').getDay();
+        let cls;
+        if (classDatesSet.has(ds)) cls = 'school';
+        else if (dow===0||dow===6) cls = 'weekend';
+        else cls = 'normal';
+        if (ds === lvDpSelected) cls += ' dp-sel';
+        if (ds === todayStr) cls += ' dp-today';
+        html += `<div class="cal-day ${cls}" onclick="lvDatePickerSelect('${ds}')">${d}</div>`;
+    }
+    document.getElementById('lv-dp-cal').innerHTML = html;
+}
+function lvDatePickerMonth(delta) {
+    lvDpMonth += delta;
+    if (lvDpMonth < 1) { lvDpMonth = 12; lvDpYear--; }
+    if (lvDpMonth > 12) { lvDpMonth = 1; lvDpYear++; }
+    renderLvDatePickerCal();
+}
+function lvDatePickerSelect(ds) {
+    lvDpSelected = ds;
+    const [y,m,d] = ds.split('-');
+    document.getElementById('lv-dp-selected').textContent = `${y}年${parseInt(m)}月${parseInt(d)}日`;
+    renderLvDatePickerCal();
+    renderLeaveT();
+}
+function lvDatePickerSetToday() {
+    const today = new Date();
+    lvDpYear = today.getFullYear(); lvDpMonth = today.getMonth()+1;
+    lvDatePickerSelect(today.toISOString().split('T')[0]);
+}
+
+// ===== 作業 日期選擇器 =====
+let hwDpYear, hwDpMonth, hwDpSelected;
+
+function renderHwDatePickerCal() {
+    const title = `${hwDpYear}年${hwDpMonth}月`;
+    document.getElementById('hw-dp-title').textContent = title;
+    const daysInMonth = new Date(hwDpYear, hwDpMonth, 0).getDate();
+    const firstDay = new Date(hwDpYear, hwDpMonth-1, 1).getDay();
+    const todayStr = new Date().toISOString().split('T')[0];
+    const weekLabels = ['日','一','二','三','四','五','六'];
+    let html = weekLabels.map(w=>`<div class="cal-header">${w}</div>`).join('');
+    for (let i=0;i<firstDay;i++) html+='<div class="cal-day empty"></div>';
+    for (let d=1;d<=daysInMonth;d++) {
+        const ds = `${hwDpYear}-${String(hwDpMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const dow = new Date(ds+'T00:00:00').getDay();
+        let cls;
+        if (classDatesSet.has(ds)) cls = 'school';
+        else if (dow===0||dow===6) cls = 'weekend';
+        else cls = 'normal';
+        if (ds === hwDpSelected) cls += ' dp-sel';
+        if (ds === todayStr) cls += ' dp-today';
+        html += `<div class="cal-day ${cls}" onclick="hwDatePickerSelect('${ds}')">${d}</div>`;
+    }
+    document.getElementById('hw-dp-cal').innerHTML = html;
+}
+function hwDatePickerMonth(delta) {
+    hwDpMonth += delta;
+    if (hwDpMonth < 1) { hwDpMonth = 12; hwDpYear--; }
+    if (hwDpMonth > 12) { hwDpMonth = 1; hwDpYear++; }
+    renderHwDatePickerCal();
+}
+function hwDatePickerSelect(ds) {
+    hwDpSelected = ds;
+    document.getElementById('hw-date-filter').value = ds;
+    const [y,m,d] = ds.split('-');
+    document.getElementById('hw-dp-selected').textContent = `${y}年${parseInt(m)}月${parseInt(d)}日`;
+    renderHwDatePickerCal();
+    loadTeacherHomeworkT();
+}
+function hwDatePickerSetToday() {
+    const today = new Date();
+    hwDpYear = today.getFullYear(); hwDpMonth = today.getMonth()+1;
+    hwDatePickerSelect(today.toISOString().split('T')[0]);
+}
+
 // ===== INIT =====
 (async function init() {
     const today = new Date();
     dpYear = today.getFullYear(); dpMonth = today.getMonth()+1;
     dpSelected = today.toISOString().split('T')[0];
+    lvDpYear = today.getFullYear(); lvDpMonth = today.getMonth()+1;
+    lvDpSelected = today.toISOString().split('T')[0];
+    hwDpYear = today.getFullYear(); hwDpMonth = today.getMonth()+1;
+    hwDpSelected = today.toISOString().split('T')[0];
+    const todayLabel = today.toLocaleDateString('zh-TW', { year:'numeric', month:'long', day:'numeric' });
     document.getElementById('t-date').value = dpSelected;
-    document.getElementById('date-picker-selected').textContent =
-        today.toLocaleDateString('zh-TW', { year:'numeric', month:'long', day:'numeric' });
+    document.getElementById('date-picker-selected').textContent = todayLabel;
+    document.getElementById('lv-dp-selected').textContent = todayLabel;
+    document.getElementById('hw-dp-selected').textContent = todayLabel;
+    document.getElementById('hw-date-filter').value = hwDpSelected;
     document.getElementById('m-month').value = today.toISOString().slice(0,7);
     document.getElementById('pin-input').addEventListener('keypress', e=>{ if(e.key==='Enter') doLogin(); });
     await loadClassDates();
     renderDatePickerCal();
+    renderLvDatePickerCal();
+    renderHwDatePickerCal();
     // Bypass login: always enter app so teachers don't need to input password
     enterApp();
 })();

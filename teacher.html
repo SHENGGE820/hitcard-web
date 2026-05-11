@@ -282,12 +282,19 @@ table.data-table tr:hover td { background: rgba(255,255,255,.02); }
 
     <!-- ===== 請假管理 ===== -->
     <div id="tab-leave" class="tab-content">
-      <div class="controls">
-        <label>學生：</label>
-        <select id="lv-stu" onchange="renderLeaveT()"><option value="">全部</option></select>
-        <label>月份：</label>
-        <input type="month" id="lv-month" oninput="renderLeaveT()">
-        <button class="btn btn-green btn-sm" onclick="loadTeacherLeaveT()">🔄</button>
+      <div class="card" style="padding:16px;margin-bottom:16px;display:inline-block;width:auto">
+        <div class="schedule-months" style="margin-bottom:10px">
+          <button onclick="lvDatePickerMonth(-1)">&#8249;</button>
+          <h3 id="lv-dp-title" style="min-width:130px;text-align:center"></h3>
+          <button onclick="lvDatePickerMonth(1)">&#8250;</button>
+        </div>
+        <div class="cal-grid" id="lv-dp-cal" style="max-width:300px"></div>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span style="color:var(--muted);font-size:13px">已選：<strong id="lv-dp-selected" style="color:var(--text)">-</strong></span>
+          <button class="btn btn-green btn-sm" onclick="lvDatePickerSetToday()">今天</button>
+          <select id="lv-stu" onchange="renderLeaveT()" style="padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px"><option value="">全部學生</option></select>
+          <button class="btn btn-green btn-sm" onclick="loadTeacherLeaveT()">🔄</button>
+        </div>
       </div>
       <div id="lv-summary" style="color:var(--muted);font-size:13px;margin-bottom:12px"></div>
       <div class="tbl-wrap">
@@ -300,10 +307,19 @@ table.data-table tr:hover td { background: rgba(255,255,255,.02); }
 
     <!-- ===== 作業管理 ===== -->
     <div id="tab-homework" class="tab-content">
-      <div class="controls">
-        <label>作業日期：</label>
-        <input type="date" id="hw-date-filter" onchange="loadTeacherHomeworkT()" value="">
-        <button class="btn btn-green btn-sm" onclick="loadTeacherHomeworkT()">🔄 重新載入</button>
+      <div class="card" style="padding:16px;margin-bottom:16px;display:inline-block;width:auto">
+        <div class="schedule-months" style="margin-bottom:10px">
+          <button onclick="hwDatePickerMonth(-1)">&#8249;</button>
+          <h3 id="hw-dp-title" style="min-width:130px;text-align:center"></h3>
+          <button onclick="hwDatePickerMonth(1)">&#8250;</button>
+        </div>
+        <div class="cal-grid" id="hw-dp-cal" style="max-width:300px"></div>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="hidden" id="hw-date-filter">
+          <span style="color:var(--muted);font-size:13px">已選：<strong id="hw-dp-selected" style="color:var(--text)">-</strong></span>
+          <button class="btn btn-green btn-sm" onclick="hwDatePickerSetToday()">今天</button>
+          <button class="btn btn-green btn-sm" onclick="loadTeacherHomeworkT()">🔄</button>
+        </div>
       </div>
       <div id="hw-summary" style="color:var(--muted);font-size:13px;margin-bottom:12px"></div>
       <div class="tbl-wrap">
