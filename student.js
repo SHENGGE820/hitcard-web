@@ -243,13 +243,15 @@ function enterMainPage() {
     // 設定請假日期預設值
     document.getElementById('leave-date').value = today.toISOString().split('T')[0];
 
-    // 設定作業日期預設值
-    document.getElementById('hw-date').value = today.toISOString().split('T')[0];
+    // 初始化作業日曆
+    hwCalYear = today.getFullYear();
+    hwCalDisplayMonth = today.getMonth() + 1;
+    hwSelectedDate = null;
 
     loadTodayAttendance();
     loadWeekAttendance();
     loadLeaveList();
-    loadHomeworkList();
+    loadHwCalendar();
     loadMonthly();
 }
 
@@ -612,7 +614,11 @@ async function submitHomework() {
 
         showToast('✅ 作業已上傳');
         fileInput.value = '';
-        dateInput.value = new Date().toISOString().split('T')[0];
+        await hwCalLoadSubmitted();
+        hwCalRender();
+        if (hwSelectedDate) {
+            document.getElementById('hw-date-label').textContent = '✅ 已繳交（可重新上傳）';
+        }
         loadHomeworkList();
     } catch (e) {
         showToast(`❌ 上傳出錯: ${e.message}`);
@@ -645,6 +651,98 @@ async function loadHomeworkList() {
             </div>
         `).join('');
     } catch (e) { console.error('載入作業記錄失敗', e); }
+}
+
+// ===== 作業日曆 =====
+let hwCalYear = new Date().getFullYear();
+let hwCalDisplayMonth = new Date().getMonth() + 1; // 1-12
+let hwAllClassDates = [];
+let hwSubmittedDates = new Set();
+let hwSelectedDate = null;
+
+async function loadHwCalendar() {
+    try {
+        let sched = await firebaseGet('class_schedule').catch(() => null);
+        if (!sched?.class_dates?.length) {
+            sched = await fetch(`./class_schedule.json?t=${Date.now()}`).then(r => r.ok ? r.json() : null).catch(() => null);
+        }
+        hwAllClassDates = sched?.class_dates || [];
+    } catch(e) { hwAllClassDates = []; }
+
+    await hwCalLoadSubmitted();
+    hwCalRender();
+}
+
+async function hwCalLoadSubmitted() {
+    try {
+        const data = await firebaseGet(`students/${currentStudent.card_uid}/homeworks`);
+        hwSubmittedDates = data
+            ? new Set(Object.values(data).map(h => h.date).filter(Boolean))
+            : new Set();
+    } catch(e) { hwSubmittedDates = new Set(); }
+}
+
+function hwCalRender() {
+    const year = hwCalYear;
+    const month = hwCalDisplayMonth;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const firstDay = new Date(year, month - 1, 1).getDay();
+    const today = new Date().toISOString().split('T')[0];
+
+    document.getElementById('hw-cal-title').textContent = `${year} 年 ${month} 月`;
+
+    const weekHeaders = ['日','一','二','三','四','五','六'];
+    let html = weekHeaders.map(d => `<div class="hw-cal-header">${d}</div>`).join('');
+
+    for (let i = 0; i < firstDay; i++) html += '<div class="hw-cal-day empty"></div>';
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const isSchool = hwAllClassDates.includes(dateStr);
+        const isSubmitted = hwSubmittedDates.has(dateStr);
+        const isSel = hwSelectedDate === dateStr;
+        const isToday = dateStr === today;
+
+        let cls = 'hw-cal-day';
+        if (isSchool) {
+            cls += isSubmitted ? ' school submitted' : ' school not-submitted';
+        } else {
+            cls += ' disabled';
+        }
+        if (isSel) cls += ' sel';
+        if (isToday) cls += ' today-dot';
+
+        const onclick = isSchool ? ` onclick="hwCalSelect('${dateStr}')"` : '';
+        html += `<div class="${cls}"${onclick}>${d}</div>`;
+    }
+
+    document.getElementById('hw-cal-grid').innerHTML = html;
+}
+
+function hwCalMonth(delta) {
+    hwCalDisplayMonth += delta;
+    if (hwCalDisplayMonth > 12) { hwCalDisplayMonth = 1; hwCalYear++; }
+    if (hwCalDisplayMonth < 1)  { hwCalDisplayMonth = 12; hwCalYear--; }
+    hwCalRender();
+}
+
+function hwCalSelect(dateStr) {
+    hwSelectedDate = dateStr;
+    document.getElementById('hw-date').value = dateStr;
+
+    const d = new Date(dateStr + 'T00:00:00');
+    const label = d.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+
+    const titleEl = document.getElementById('hw-date-title');
+    titleEl.textContent = `📅 ${label}`;
+    titleEl.classList.remove('empty');
+
+    document.getElementById('hw-date-label').textContent =
+        hwSubmittedDates.has(dateStr) ? '✅ 已繳交（可重新上傳）' : '⚠️ 尚未繳交';
+    document.getElementById('hw-file-wrap').style.display = 'block';
+    document.getElementById('hw-submit-btn').style.display = 'block';
+
+    hwCalRender();
 }
 
 // ===== 自助註冊 =====
