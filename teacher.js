@@ -749,8 +749,13 @@ async function loadHomeworkInfo(date) {
             titleEl.className = 'hw-title-bar empty';
             titleInput.value = '';
         }
-        if (info && info.attachment_name && info.attachment_url) {
-            attachEl.innerHTML = `📎 附件：<a href="${info.attachment_url}" target="_blank" style="color:var(--accent)">${info.attachment_name}</a>`;
+        if (info && info.attachment_name) {
+            if (info.attachment_url === '__RTDB__') {
+                attachEl.innerHTML = `📎 附件：<a href="javascript:void(0)" onclick="downloadRtdbAttachment('${date}','${info.attachment_name.replace(/'/g,"\\'")}')"
+                    style="color:var(--accent)">${info.attachment_name}</a>`;
+            } else if (info.attachment_url) {
+                attachEl.innerHTML = `📎 附件：<a href="${info.attachment_url}" target="_blank" style="color:var(--accent)">${info.attachment_name}</a>`;
+            }
         } else {
             attachEl.textContent = '';
         }
@@ -788,7 +793,11 @@ async function saveHomeworkInfo() {
         document.getElementById('hw-title-disp').textContent = title;
         document.getElementById('hw-title-disp').className = 'hw-title-bar';
         if (attachment_name) {
-            document.getElementById('hw-attach-disp').innerHTML = `📎 附件：<a href="${attachment_url}" target="_blank" style="color:var(--accent)">${attachment_name}</a>`;
+            if (attachment_url === '__RTDB__') {
+                document.getElementById('hw-attach-disp').innerHTML = `📎 附件：<a href="javascript:void(0)" onclick="downloadRtdbAttachment('${date}','${attachment_name.replace(/'/g,"\\'")}')" style="color:var(--accent)">${attachment_name}</a>`;
+            } else if (attachment_url) {
+                document.getElementById('hw-attach-disp').innerHTML = `📎 附件：<a href="${attachment_url}" target="_blank" style="color:var(--accent)">${attachment_name}</a>`;
+            }
         }
         statusEl.textContent = '✅ 已儲存'; statusEl.style.color = 'var(--green)';
         fileInput.value = ''; document.getElementById('hw-attach-name-prev').textContent = '未選擇';
@@ -800,22 +809,33 @@ async function saveHomeworkInfo() {
 }
 
 async function uploadTeacherAttachment(file, date) {
-    const storageBucket = FIREBASE_CONFIG.storageBucket;
-    if (!storageBucket) throw new Error('未設定 Firebase storageBucket');
-    const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-    const path = `homework_attachments/${date}/${safeName}`;
-    const encodedPath = encodeURIComponent(path);
-    const apiKey = FIREBASE_CONFIG.apiKey;
-    const r = await fetch(
-        `https://firebasestorage.googleapis.com/v0/b/${storageBucket}/o?name=${encodedPath}&uploadType=media&key=${apiKey}`,
-        { method: 'POST', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file }
-    );
-    if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error?.message || `上傳失敗 (${r.status})`); }
-    const data = await r.json();
-    return {
-        url: `https://firebasestorage.googleapis.com/v0/b/${storageBucket}/o/${encodedPath}?alt=media&token=${data.downloadTokens}`,
-        name: file.name
-    };
+    const MAX = 5 * 1024 * 1024; // 5MB
+    if (file.size > MAX) throw new Error(`檔案不能超過 5MB（目前 ${(file.size/1024/1024).toFixed(1)}MB）`);
+    // 用 RTDB 儲存 base64，不依賴 Firebase Storage
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const dataUrl = e.target.result;
+                // 分開存：metadata vs 大型 base64 data
+                await fbPut(`homework_attachments_b64/${date}`, dataUrl);
+                resolve({ url: '__RTDB__', name: file.name });
+            } catch(err) { reject(new Error('儲存失敗：' + err.message)); }
+        };
+        reader.onerror = () => reject(new Error('讀取檔案失敗'));
+        reader.readAsDataURL(file);
+    });
+}
+
+async function downloadRtdbAttachment(date, filename) {
+    try {
+        const dataUrl = await fbGet(`homework_attachments_b64/${date}`);
+        if (!dataUrl) { showToast('找不到附件'); return; }
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = filename;
+        a.click();
+    } catch(e) { showToast('下載失敗：' + e.message); }
 }
 
 // ===== INIT =====
