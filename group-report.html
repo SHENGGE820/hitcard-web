@@ -805,6 +805,26 @@
 </div>
 
 <script src="config.js"></script>
+<!-- Firebase SDK（僅用於影片 resumable 上傳）-->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
+
+  const _app     = initializeApp(FIREBASE_CONFIG);
+  const _storage = getStorage(_app);
+
+  window._fbUploadVideo = function(file, path, onProgress) {
+    return new Promise((resolve, reject) => {
+      const storageRef = ref(_storage, path);
+      const task = uploadBytesResumable(storageRef, file, { contentType: file.type || 'video/mp4' });
+      task.on('state_changed',
+        snap => onProgress(snap.bytesTransferred, snap.totalBytes),
+        err  => reject(err),
+        ()   => getDownloadURL(task.snapshot.ref).then(resolve).catch(reject)
+      );
+    });
+  };
+</script>
 <script>
 // ===== Firebase helpers =====
 const DB_URL = FIREBASE_CONFIG.databaseURL;
@@ -1232,12 +1252,9 @@ async function uploadVideoFile(input) {
     if (!confirm(`這個影片有 ${(file.size/1024/1024).toFixed(0)}MB，非常大，確定要上傳嗎？`)) return;
   }
 
-  const bucket = FIREBASE_CONFIG.storageBucket;
-  const apiKey = FIREBASE_CONFIG.apiKey;
   const ts = Date.now();
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
   const path = `group_videos/${ts}_${safeName}`;
-  const encodedPath = encodeURIComponent(path);
 
   document.getElementById('video-upload-name').textContent = file.name;
   document.getElementById('video-upload-progress').style.display = 'block';
@@ -1246,58 +1263,24 @@ async function uploadVideoFile(input) {
   document.getElementById('video-upload-text').textContent = '上傳中…';
 
   try {
-    // Step 1: 建立 resumable upload session（支援大檔案）
-    const initUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=resumable&name=${encodedPath}&key=${apiKey}`;
-    const initRes = await fetch(initUrl, {
-      method: 'POST',
-      headers: {
-        'X-Goog-Upload-Protocol': 'resumable',
-        'X-Goog-Upload-Command': 'start',
-        'X-Goog-Upload-Content-Type': file.type || 'video/mp4',
-        'X-Goog-Upload-Content-Length': String(file.size),
-        'Content-Type': 'application/json',
-      },
-      body: '{}'
-    });
-    if (!initRes.ok) throw new Error(`初始化失敗 (${initRes.status})`);
-    const sessionUri = initRes.headers.get('X-Goog-Upload-URL');
-    if (!sessionUri) throw new Error('無法取得上傳位址（可能是 Storage 規則未開放）');
+    if (!window._fbUploadVideo) throw new Error('SDK 尚未載入，請重新整理頁面');
 
-    // Step 2: 上傳檔案（帶進度）
-    await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('PUT', sessionUri);
-      xhr.setRequestHeader('X-Goog-Upload-Command', 'upload, finalize');
-      xhr.setRequestHeader('X-Goog-Upload-Offset', '0');
-      xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
-      xhr.upload.onprogress = e => {
-        if (e.lengthComputable) {
-          const pct = Math.round(e.loaded / e.total * 100);
-          const loaded = (e.loaded / 1024 / 1024).toFixed(1);
-          const total  = (e.total  / 1024 / 1024).toFixed(1);
-          document.getElementById('video-upload-pct').textContent = `${pct}%`;
-          document.getElementById('video-upload-name').textContent = `${file.name}  (${loaded} / ${total} MB)`;
-          document.getElementById('video-progress-bar').style.width = pct + '%';
-        }
-      };
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) resolve();
-        else reject(new Error(`上傳失敗 (${xhr.status})`));
-      };
-      xhr.onerror = () => reject(new Error('網路錯誤'));
-      xhr.send(file);
+    const downloadUrl = await window._fbUploadVideo(file, path, (loaded, total) => {
+      const pct = total ? Math.round(loaded / total * 100) : 0;
+      const loadedMB = (loaded / 1024 / 1024).toFixed(1);
+      const totalMB  = (total  / 1024 / 1024).toFixed(1);
+      document.getElementById('video-upload-pct').textContent = `${pct}%`;
+      document.getElementById('video-upload-name').textContent = `${file.name}  (${loadedMB} / ${totalMB} MB)`;
+      document.getElementById('video-progress-bar').style.width = pct + '%';
     });
 
-    const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodedPath}?alt=media`;
     document.getElementById('f-video').value = downloadUrl;
     document.getElementById('video-upload-text').textContent = '✅ 上傳完成：' + file.name;
     document.getElementById('video-upload-pct').textContent = '100%';
 
-    // 記錄使用量
     await trackStorageUsage(file.size);
     await updateStorageDisplay();
 
-    // 播放預覽
     document.getElementById('video-native-player').src = downloadUrl;
     document.getElementById('video-native-preview').style.display = 'block';
     document.getElementById('video-preview-wrap').style.display = 'none';
