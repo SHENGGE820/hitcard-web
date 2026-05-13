@@ -80,7 +80,7 @@
 
     /* ===== Views ===== */
     .view { display: none; }
-    .view.active { display: block; animate: fadeIn 0.3s; }
+    .view.active { display: block; animation: fadeIn 0.3s; }
 
     /* ===== Home ===== */
     .home-header {
@@ -950,8 +950,17 @@ function openEdit(id) {
   const ml = document.getElementById('members-list');
   ml.innerHTML = '';
   const members = splitLines(g.members);
-  if (members.length) members.forEach(m => addMemberRow(m));
-  else addMemberRow();
+  if (members.length) {
+    members.forEach(m => {
+      const sep = m.match(/[－—\-]/);
+      if (sep) {
+        const splitIdx = m.indexOf(sep[0]);
+        addMemberRow(m.slice(0, splitIdx).trim(), m.slice(splitIdx + 1).trim());
+      } else {
+        addMemberRow(m);
+      }
+    });
+  } else addMemberRow();
 
   // Photos
   const pl = document.getElementById('photos-list');
