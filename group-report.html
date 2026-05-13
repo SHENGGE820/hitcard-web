@@ -1175,33 +1175,45 @@ async function uploadVideoFile(input) {
 }
 
 async function trackStorageUsage(bytes) {
-  try {
-    const cur = await fbGet('storage_usage/group_videos_bytes').catch(() => 0);
-    await fbPut('storage_usage/group_videos_bytes', (cur || 0) + bytes);
-  } catch(e) { /* 非關鍵，忽略 */ }
+  // 改用真實 API 計算，不再需要手動追蹤
 }
 
 async function updateStorageDisplay() {
   const el = document.getElementById('storage-gauge');
   if (!el) return;
+  el.innerHTML = '<span style="font-size:12px;color:#94a3b8">載入中…</span>';
   try {
-    const used = await fbGet('storage_usage/group_videos_bytes').catch(() => 0);
-    const usedBytes = used || 0;
-    const totalBytes = 5 * 1024 * 1024 * 1024; // 5 GB (Firebase Blaze 方案)
-    const usedMB     = (usedBytes / 1024 / 1024).toFixed(0);
-    const remainMB   = ((totalBytes - usedBytes) / 1024 / 1024).toFixed(0);
-    const pct        = Math.min(100, (usedBytes / totalBytes * 100));
-    const color      = pct > 80 ? '#ef4444' : pct > 60 ? '#f59e0b' : '#6366f1';
+    const bucket = FIREBASE_CONFIG.storageBucket;
+    const apiKey = FIREBASE_CONFIG.apiKey;
+    // 列出 group_videos/ 目錄下所有檔案，加總實際大小
+    let usedBytes = 0;
+    let pageToken = '';
+    do {
+      const tokenParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
+      const res = await fetch(
+        `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?prefix=group_videos%2F&maxResults=100${tokenParam}&key=${apiKey}`
+      );
+      if (!res.ok) throw new Error(`列上失敗 (${res.status})`);
+      const data = await res.json();
+      (data.items || []).forEach(item => { usedBytes += parseInt(item.size || 0, 10); });
+      pageToken = data.nextPageToken || '';
+    } while (pageToken);
+
+    const totalBytes = 5 * 1024 * 1024 * 1024;
+    const usedMB  = (usedBytes / 1024 / 1024).toFixed(1);
+    const remainMB = ((totalBytes - usedBytes) / 1024 / 1024).toFixed(0);
+    const pct     = Math.min(100, usedBytes / totalBytes * 100);
+    const color   = pct > 80 ? '#ef4444' : pct > 60 ? '#f59e0b' : '#6366f1';
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;font-size:12px;color:#64748b;margin-bottom:4px">
-        <span>🗄️ 影片空間</span>
+        <span>🗄️ 影片空間（實際用量）</span>
         <span style="color:${color};font-weight:600">${usedMB} MB 已用　剩餘約 ${remainMB} MB / 5,120 MB</span>
       </div>
       <div style="background:#e2e8f0;border-radius:99px;height:6px;overflow:hidden">
         <div style="height:100%;background:${color};width:${pct.toFixed(1)}%;transition:width 0.5s"></div>
       </div>`;
   } catch(e) {
-    el.innerHTML = '<span style="font-size:12px;color:#94a3b8">🗄️ 無法讀取空間使用量</span>';
+    el.innerHTML = `<span style="font-size:12px;color:#94a3b8">🗄️ 無法讀取空間使用量：${e.message}</span>`;
   }
 }
 
