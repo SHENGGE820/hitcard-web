@@ -680,10 +680,29 @@
       <hr class="section-divider">
 
       <div class="form-group">
-        <label>🎬 影片連結</label>
-        <input type="url" id="f-video" placeholder="YouTube、Google Drive 或其他影片連結">
+        <label>🎬 影片</label>
+        <input type="url" id="f-video" placeholder="貼上 YouTube / Google Drive 連結">
+        <div style="margin:10px 0;display:flex;align-items:center;gap:10px;color:#94a3b8;font-size:13px">
+          <div style="flex:1;height:1px;background:#e2e8f0"></div>或直接上傳影片檔案<div style="flex:1;height:1px;background:#e2e8f0"></div>
+        </div>
+        <label id="video-upload-label" style="display:flex;align-items:center;gap:10px;padding:13px 16px;border:2px dashed #c7d2fe;border-radius:13px;cursor:pointer;transition:0.2s;font-weight:400;text-transform:none;letter-spacing:0;color:#475569;font-size:14px" onmouseover="this.style.borderColor='#6366f1'" onmouseout="this.style.borderColor='#c7d2fe'">
+          <span style="font-size:22px">🎥</span>
+          <span id="video-upload-text">選擇影片檔案（MP4、MOV、AVI 等，建議 500MB 以內）</span>
+          <input type="file" id="video-file-input" accept="video/*" style="display:none" onchange="uploadVideoFile(this)">
+        </label>
+        <div id="video-upload-progress" style="display:none;margin-top:10px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:#64748b;margin-bottom:5px">
+            <span id="video-upload-name"></span><span id="video-upload-pct">0%</span>
+          </div>
+          <div style="background:#e2e8f0;border-radius:99px;height:7px;overflow:hidden">
+            <div id="video-progress-bar" style="height:100%;background:linear-gradient(90deg,#6366f1,#ec4899);width:0;transition:width 0.2s"></div>
+          </div>
+        </div>
         <div id="video-preview-wrap" style="margin-top:10px;display:none">
           <div class="video-box"><iframe id="video-preview-frame" allowfullscreen></iframe></div>
+        </div>
+        <div id="video-native-preview" style="margin-top:10px;display:none">
+          <video id="video-native-player" controls style="width:100%;border-radius:14px;background:#000"></video>
         </div>
       </div>
 
@@ -881,6 +900,8 @@ function openDetail(id) {
     html += `<div class="detail-sec"><h3>🎬 影片</h3>`;
     if (yid) {
       html += `<div class="video-box"><iframe src="https://www.youtube.com/embed/${yid}" allowfullscreen></iframe></div>`;
+    } else if (g.video.includes('firebasestorage.googleapis.com')) {
+      html += `<video controls style="width:100%;border-radius:14px;background:#000" src="${escAttr(g.video)}"></video>`;
     } else {
       html += `<a href="${escHtml(g.video)}" target="_blank" rel="noopener" class="video-ext-link">▶ 開啟影片連結</a>`;
     }
@@ -932,6 +953,11 @@ function openEdit(id) {
   document.getElementById('f-topic').value    = g.topic    || '';
   document.getElementById('f-video').value    = g.video    || '';
 
+  // Reset video upload UI
+  document.getElementById('video-upload-progress').style.display = 'none';
+  document.getElementById('video-file-input').value = '';
+  document.getElementById('video-upload-text').textContent = '選擇影片檔案（MP4、MOV、AVI 等，建議 500MB 以內）';
+
   // Members
   const ml = document.getElementById('members-list');
   ml.innerHTML = '';
@@ -962,6 +988,10 @@ function openEdit(id) {
 // ===== Form reset =====
 function resetForm() {
   ['f-name','f-topic','f-video'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('video-upload-progress').style.display = 'none';
+  document.getElementById('video-native-preview').style.display = 'none';
+  document.getElementById('video-upload-text').textContent = '選擇影片檔案（MP4、MOV、AVI 等，建議 500MB 以內）';
+  document.getElementById('video-file-input').value = '';
 
   const ml = document.getElementById('members-list');
   ml.innerHTML = '';
@@ -1019,15 +1049,80 @@ document.getElementById('f-video').addEventListener('input', function() {
 });
 
 function updateVideoPreview(url) {
-  const wrap  = document.getElementById('video-preview-wrap');
-  const frame = document.getElementById('video-preview-frame');
+  const wrap   = document.getElementById('video-preview-wrap');
+  const frame  = document.getElementById('video-preview-frame');
+  const native = document.getElementById('video-native-preview');
+  const player = document.getElementById('video-native-player');
   const yid = getYouTubeId(url);
   if (yid) {
     frame.src = `https://www.youtube.com/embed/${yid}`;
     wrap.style.display = 'block';
+    native.style.display = 'none';
+  } else if (url && !url.includes('youtube') && !url.includes('youtu.be')) {
+    // Direct video URL — show native player
+    player.src = url;
+    native.style.display = 'block';
+    wrap.style.display = 'none';
   } else {
     frame.src = '';
     wrap.style.display = 'none';
+    native.style.display = 'none';
+  }
+}
+
+// ===== Video file upload =====
+async function uploadVideoFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const bucket = FIREBASE_CONFIG.storageBucket;
+  const apiKey = FIREBASE_CONFIG.apiKey;
+  const ts = Date.now();
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `group_videos/${ts}_${safeName}`;
+  const encodedPath = encodeURIComponent(path);
+  const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}&key=${apiKey}`;
+
+  document.getElementById('video-upload-name').textContent = file.name;
+  document.getElementById('video-upload-progress').style.display = 'block';
+  document.getElementById('video-upload-pct').textContent = '0%';
+  document.getElementById('video-progress-bar').style.width = '0';
+  document.getElementById('video-upload-text').textContent = '上傳中…';
+
+  try {
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', uploadUrl);
+      xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
+      xhr.upload.onprogress = e => {
+        if (e.lengthComputable) {
+          const pct = Math.round(e.loaded / e.total * 100);
+          document.getElementById('video-upload-pct').textContent = pct + '%';
+          document.getElementById('video-progress-bar').style.width = pct + '%';
+        }
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText));
+        else reject(new Error(`上傳失敗 (${xhr.status})`));
+      };
+      xhr.onerror = () => reject(new Error('網路錯誤'));
+      xhr.send(file);
+    });
+
+    const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodedPath}?alt=media`;
+    document.getElementById('f-video').value = downloadUrl;
+    document.getElementById('video-upload-text').textContent = '✅ 上傳完成：' + file.name;
+    document.getElementById('video-upload-pct').textContent = '100%';
+
+    // Show native preview
+    const player = document.getElementById('video-native-player');
+    player.src = downloadUrl;
+    document.getElementById('video-native-preview').style.display = 'block';
+    document.getElementById('video-preview-wrap').style.display = 'none';
+
+  } catch(e) {
+    document.getElementById('video-upload-text').textContent = '❌ ' + e.message;
+    showToast('影片上傳失敗：' + e.message);
   }
 }
 
