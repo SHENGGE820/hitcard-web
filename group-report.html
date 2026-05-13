@@ -899,9 +899,12 @@ function openDetail(id) {
   // Video
   if (g.video?.trim()) {
     const yid = getYouTubeId(g.video);
+    const driveUrl = getDriveEmbedUrl(g.video);
     html += `<div class="detail-sec"><h3>🎬 影片</h3>`;
     if (yid) {
       html += `<div class="video-box"><iframe src="https://www.youtube.com/embed/${yid}" allowfullscreen></iframe></div>`;
+    } else if (driveUrl) {
+      html += `<div class="video-box"><iframe src="${escAttr(driveUrl)}" allowfullscreen></iframe></div>`;
     } else if (g.video.includes('firebasestorage.googleapis.com')) {
       html += `<video controls style="width:100%;border-radius:14px;background:#000" src="${escAttr(g.video)}"></video>`;
     } else {
@@ -940,6 +943,15 @@ function editFromModal() {
 function getYouTubeId(url) {
   const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
+}
+
+function getDriveEmbedUrl(url) {
+  // 支援 drive.google.com/file/d/ID/view 或 /open?id=ID
+  let m = url.match(/drive\.google\.com\/file\/d\/([^/\?&]+)/);
+  if (m) return `https://drive.google.com/file/d/${m[1]}/preview`;
+  m = url.match(/[?&]id=([^&]+)/);
+  if (m && url.includes('drive.google.com')) return `https://drive.google.com/file/d/${m[1]}/preview`;
+  return null;
 }
 
 // ===== Open Edit =====
@@ -1056,13 +1068,17 @@ function updateVideoPreview(url) {
   const frame  = document.getElementById('video-preview-frame');
   const native = document.getElementById('video-native-preview');
   const player = document.getElementById('video-native-player');
-  const yid = getYouTubeId(url);
+  const yid      = getYouTubeId(url);
+  const driveUrl = getDriveEmbedUrl(url);
   if (yid) {
     frame.src = `https://www.youtube.com/embed/${yid}`;
     wrap.style.display = 'block';
     native.style.display = 'none';
-  } else if (url && !url.includes('youtube') && !url.includes('youtu.be')) {
-    // Direct video URL — show native player
+  } else if (driveUrl) {
+    frame.src = driveUrl;
+    wrap.style.display = 'block';
+    native.style.display = 'none';
+  } else if (url && url.includes('firebasestorage.googleapis.com')) {
     player.src = url;
     native.style.display = 'block';
     wrap.style.display = 'none';
