@@ -566,21 +566,64 @@
 
     .photo-gallery {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
       gap: 10px;
     }
 
     .gal-img {
       width: 100%;
-      aspect-ratio: 4/3;
+      aspect-ratio: 1/1;
       object-fit: cover;
       border-radius: 11px;
       cursor: pointer;
       transition: 0.2s;
       border: 2px solid transparent;
+      display: block;
     }
 
     .gal-img:hover { transform: scale(1.04); border-color: #6366f1; }
+
+    /* Lightbox */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .lightbox.open { display: flex; }
+    .lightbox img {
+      max-width: 92vw;
+      max-height: 90vh;
+      border-radius: 12px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+    }
+    .lightbox-close {
+      position: fixed;
+      top: 18px; right: 22px;
+      color: white;
+      font-size: 34px;
+      cursor: pointer;
+      line-height: 1;
+      opacity: 0.85;
+    }
+    .lightbox-close:hover { opacity: 1; }
+    .lightbox-prev, .lightbox-next {
+      position: fixed;
+      top: 50%; transform: translateY(-50%);
+      color: white;
+      font-size: 44px;
+      cursor: pointer;
+      opacity: 0.7;
+      user-select: none;
+      padding: 0 16px;
+    }
+    .lightbox-prev { left: 8px; }
+    .lightbox-next { right: 8px; }
+    .lightbox-prev:hover, .lightbox-next:hover { opacity: 1; }
 
     .modal-ft {
       padding: 18px 30px;
@@ -708,9 +751,16 @@
       </div>
 
       <div class="form-group">
-        <label>🖼️ 照片連結（可多張）</label>
+        <label>🖼️ 照片</label>
         <div class="dyn-list" id="photos-list"></div>
-        <button type="button" class="btn-add-row" onclick="addPhotoRow()">＋ 新增照片</button>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button type="button" class="btn-add-row" style="flex:1;min-width:140px" onclick="addPhotoRow()">＋ 輸入網址</button>
+          <label style="flex:1;min-width:140px;margin:0;padding:9px 16px;border-radius:11px;border:2px dashed #c7d2fe;background:transparent;color:#6366f1;font-size:13px;font-weight:600;cursor:pointer;text-align:center;transition:0.2s" onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='transparent'">
+            📸 直接上傳照片
+            <input type="file" accept="image/*" multiple style="display:none" onchange="uploadPhotos(this)">
+          </label>
+        </div>
+        <div id="photo-upload-status" style="margin-top:8px;font-size:12px;color:#64748b;display:none"></div>
       </div>
 
       <div class="form-actions">
@@ -745,6 +795,14 @@
 
 <!-- ===== Toast ===== -->
 <div class="toast" id="toast"></div>
+
+<!-- ===== Lightbox ===== -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <span class="lightbox-close">✕</span>
+  <span class="lightbox-prev" onclick="event.stopPropagation();lbMove(-1)">&#8249;</span>
+  <img id="lightbox-img" src="" alt="" onclick="event.stopPropagation()">
+  <span class="lightbox-next" onclick="event.stopPropagation();lbMove(1)">&#8250;</span>
+</div>
 
 <script src="config.js"></script>
 <script>
@@ -994,6 +1052,7 @@ function openEdit(id) {
   const photos = splitLines(g.photos);
   if (photos.length) photos.forEach(p => addPhotoRow(p));
   else addPhotoRow();
+  document.getElementById('photo-upload-status').style.display = 'none';
 
   // Video preview
   updateVideoPreview(g.video || '');
@@ -1015,6 +1074,7 @@ function resetForm() {
   const pl = document.getElementById('photos-list');
   pl.innerHTML = '';
   addPhotoRow();
+  document.getElementById('photo-upload-status').style.display = 'none';
 
   document.getElementById('video-preview-wrap').style.display = 'none';
 }
@@ -1035,7 +1095,7 @@ function addPhotoRow(url = '') {
   const d = document.createElement('div');
   d.className = 'dyn-row';
   d.innerHTML = `
-    <input type="url" placeholder="照片網址（https://…）" value="${escAttr(url)}" oninput="previewPhoto(this)">
+    <input type="url" placeholder="照片網址（https://…）" value="${escAttr(url)}" data-url="${escAttr(url)}" oninput="this.dataset.url=this.value;previewPhoto(this)">
     <img class="photo-thumb" alt="預覽">
     <button type="button" class="btn-rm" onclick="this.parentElement.remove()">✕</button>`;
   document.getElementById('photos-list').appendChild(d);
@@ -1045,6 +1105,52 @@ function addPhotoRow(url = '') {
     img.style.display = 'block';
     img.onerror = () => { img.style.display = 'none'; };
   }
+}
+
+// 新增已上傳照片的唯讀列
+function addPhotoUploaded(url, filename) {
+  const d = document.createElement('div');
+  d.className = 'dyn-row';
+  d.innerHTML = `
+    <input type="url" data-url="${escAttr(url)}" value="${escAttr(url)}" readonly style="flex:1;background:#f8fafc;color:#475569;font-size:12px">
+    <img class="photo-thumb" src="${escAttr(url)}" alt="預覽" style="display:block">
+    <button type="button" class="btn-rm" onclick="this.parentElement.remove()">✕</button>`;
+  document.getElementById('photos-list').appendChild(d);
+}
+
+async function uploadPhotos(input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  const bucket = FIREBASE_CONFIG.storageBucket;
+  const apiKey = FIREBASE_CONFIG.apiKey;
+  const status = document.getElementById('photo-upload-status');
+  status.style.display = 'block';
+  status.textContent = `⏳ 上傳中 0 / ${files.length}…`;
+
+  let done = 0;
+  for (const file of files) {
+    try {
+      const ts = Date.now();
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `group_photos/${ts}_${safeName}`;
+      const encodedPath = encodeURIComponent(path);
+      const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}&key=${apiKey}`;
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': file.type || 'image/jpeg' },
+        body: file
+      });
+      if (!res.ok) throw new Error(`${file.name} 失敗 (${res.status})`);
+      const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodedPath}?alt=media`;
+      addPhotoUploaded(downloadUrl, file.name);
+      done++;
+      status.textContent = `⏳ 上傳中 ${done} / ${files.length}…`;
+    } catch(e) {
+      status.textContent = `❌ ${e.message}`;
+    }
+  }
+  status.textContent = `✅ 已上傳 ${done} / ${files.length} 張`;
+  input.value = '';
 }
 
 function previewPhoto(input) {
@@ -1057,6 +1163,34 @@ function previewPhoto(input) {
     img.style.display = 'none';
   }
 }
+
+// ===== Lightbox =====
+let currentLightboxPhotos = [];
+let currentLightboxIdx = 0;
+
+function openLightbox(idx) {
+  currentLightboxIdx = idx;
+  document.getElementById('lightbox-img').src = currentLightboxPhotos[idx];
+  document.getElementById('lightbox').classList.add('open');
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lightbox-img').src = '';
+}
+
+function lbMove(delta) {
+  currentLightboxIdx = (currentLightboxIdx + delta + currentLightboxPhotos.length) % currentLightboxPhotos.length;
+  document.getElementById('lightbox-img').src = currentLightboxPhotos[currentLightboxIdx];
+}
+
+document.addEventListener('keydown', e => {
+  const lb = document.getElementById('lightbox');
+  if (!lb.classList.contains('open')) return;
+  if (e.key === 'Escape') closeLightbox();
+  if (e.key === 'ArrowLeft')  lbMove(-1);
+  if (e.key === 'ArrowRight') lbMove(1);
+});
 
 // ===== Video preview in form =====
 document.getElementById('f-video').addEventListener('input', function() {
@@ -1235,8 +1369,12 @@ async function saveGroup() {
     return r ? `${n} — ${r}` : n;
   }).filter(Boolean).join('\n');
 
-  const photos = Array.from(document.querySelectorAll('#photos-list input[type=url]'))
+  const photos = Array.from(document.querySelectorAll('#photos-list input[data-url]'))
+    .map(i => i.getAttribute('data-url')).filter(Boolean).join('\n');
+  // also collect manually typed URLs
+  const photosTyped = Array.from(document.querySelectorAll('#photos-list input[type=url]'))
     .map(i => i.value.trim()).filter(Boolean).join('\n');
+  const allPhotos = [...new Set([...photos.split('\n'), ...photosTyped.split('\n')].filter(Boolean))].join('\n');
 
   let number;
   if (id) {
@@ -1249,7 +1387,7 @@ async function saveGroup() {
   const data = {
     name, topic, members,
     video:    document.getElementById('f-video').value.trim(),
-    photos,
+    photos:   allPhotos,
     number,
     updated_at: new Date().toISOString()
   };
