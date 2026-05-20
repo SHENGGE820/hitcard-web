@@ -583,10 +583,11 @@ async function submitHomework() {
 
     try {
         const bucket = 'hitcard-system.firebasestorage.app';
+        const apiKey = typeof FIREBASE_CONFIG !== 'undefined' ? FIREBASE_CONFIG.apiKey : '';
         const timestamp = Date.now();
         const storagePath = `homeworks/${hwDate}/${currentStudent.card_uid}/${timestamp}_${file.name}`;
         const encodedPath = encodeURIComponent(storagePath);
-        const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}`;
+        const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}&key=${apiKey}`;
 
         const uploadRes = await fetch(uploadUrl, {
             method: 'POST',
